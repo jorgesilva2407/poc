@@ -6,6 +6,8 @@ def read_ratings(ratings_file):
     df = pd.read_json(ratings_file, lines=True)
     df = df[['reviewerID', 'asin', 'overall', 'unixReviewTime']]
     df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
+    df['label'] = (df['rating'] >= 4).astype(int)
+    df.drop(columns=['rating'], inplace=True)
     return df
 
 def merge_ratings(beauty_ratings, clothing_ratings):
