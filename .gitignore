@@ -10,3 +10,7 @@ wheels/
 .venv
 data/raw/*
 runs/*
+
+# Environment Variables
+.env
+.env.gcloud
