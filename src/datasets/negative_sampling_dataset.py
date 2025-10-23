@@ -3,9 +3,12 @@ import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from torch.utils.data import Dataset
+from typing import Tuple
+
+TripletSample = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
-class NegativeSamplingDataset(Dataset):
+class NegativeSamplingDataset(Dataset[TripletSample]):
     def __init__(
         self,
         interactions: pd.DataFrame,
@@ -29,7 +32,7 @@ class NegativeSamplingDataset(Dataset):
     def __len__(self):
         return self.size
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> TripletSample:
         user = self.users[idx]
 
         pos_items = list(self.user_train_interactions[user])

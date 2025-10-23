@@ -1,15 +1,18 @@
-from torch.nn import Module, Embedding, BCEWithLogitsLoss
+from torch import Tensor
+from torch.nn import Embedding
+from src.models.recommender import Recommender
 
 
-class BiasedSVD(Module):
-    def __init__(self, num_users, num_items, embedding_dim):
-        super().__init__()
+class BiasedSVD(Recommender):
+    def __init__(self, num_users: int, num_items: int, embedding_dim: int):
+        super().__init__("BiasedSVD")
+        self.embedding_dim = embedding_dim
         self.user_embedding = Embedding(num_users, embedding_dim)
         self.item_embedding = Embedding(num_items, embedding_dim)
         self.user_bias = Embedding(num_users, 1)
         self.item_bias = Embedding(num_items, 1)
 
-    def forward(self, user_ids, item_ids):
+    def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
         user_embeds = self.user_embedding(user_ids)
         item_embeds = self.item_embedding(item_ids)
         user_b = self.user_bias(user_ids).squeeze()

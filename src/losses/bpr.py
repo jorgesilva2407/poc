@@ -1,21 +1,13 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from src.losses.pairwise_losses import PairwiseLoss
 
 
-class BPRLoss(nn.Module):
+class BPRLoss(PairwiseLoss):
     def __init__(self):
-        super(BPRLoss, self).__init__()
+        super().__init__("BPR")
 
-    def forward(self, pos_scores, neg_scores):
-        """
-        Compute the Bayesian Personalized Ranking (BPR) loss.
-
-        Args:
-            pos_scores (torch.Tensor): Predicted scores for positive items.
-            neg_scores (torch.Tensor): Predicted scores for negative items.
-
-        Returns:
-            torch.Tensor: Computed BPR loss.
-        """
+    def forward(
+        self, pos_scores: torch.Tensor, neg_scores: torch.Tensor
+    ) -> torch.Tensor:
         return -torch.mean(F.logsigmoid(pos_scores - neg_scores))
