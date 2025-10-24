@@ -3,9 +3,8 @@ import numpy as np
 import pandas as pd
 from argparse import ArgumentParser
 from torch.utils.data import Dataset
-from typing import Tuple
 
-TripletSample = Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+TripletSample = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
 class NegativeSamplingDataset(Dataset[TripletSample]):

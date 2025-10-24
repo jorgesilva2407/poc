@@ -14,3 +14,6 @@ runs/*
 # Environment Variables
 .env
 .env.gcloud
+
+# Sensitive files
+service-account-key.json

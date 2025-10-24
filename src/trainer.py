@@ -1,10 +1,10 @@
+import os
 import json
 import torch
 from tqdm import tqdm
 from pathlib import Path
 from google.cloud import storage
 from torch.optim import Optimizer
-from typing import List, Tuple, Dict
 from src.models.recommender import Recommender
 from torch.utils.data import DataLoader, Subset
 from torch.utils.tensorboard import SummaryWriter
@@ -14,6 +14,27 @@ from src.datasets.negative_sampling_dataset import TripletSample
 
 
 class Trainer:
+    TENSORBOARD_LOG_DIR = os.getenv("TENSORBOARD_LOG_DIR", "runs")
+    LOCAL_ARTIFACT_SAVE_DIR = os.getenv("LOCAL_ARTIFACT_SAVE_DIR", "artifacts")
+    GCP_BUCKET_NAME = os.getenv("GCP_BUCKET_NAME", "my-bucket")
+    GCP_BLOB_BASE_PATH = os.getenv("GCP_BLOB_BASE_PATH", "artifacts")
+    IS_RUNNING_ON_CLOUD = os.getenv("IS_RUNNING_ON_CLOUD", "false").lower() == "true"
+
+    model: Recommender
+    train_loader: DataLoader[TripletSample]
+    val_loader: DataLoader[TripletSample]
+    test_loader: DataLoader[TripletSample]
+    optimizer: Optimizer
+    loss: PairwiseLoss
+    metrics: list[ListwiseMetrics]
+    device: torch.device
+
+    epochs: int = 50
+    validation_subset_ratio: float = 0.1
+    early_stopping_patience: int = 3
+    epochs_without_improvement: int = 0
+    best_val_metric: float = None
+
     def __init__(
         self,
         model: Recommender,
@@ -22,39 +43,55 @@ class Trainer:
         test_loader: DataLoader[TripletSample],
         optimizer: Optimizer,
         loss: PairwiseLoss,
-        metrics: List[ListwiseMetrics],
+        metrics: list[ListwiseMetrics],
+        early_stopping_metric: str,
+        early_stopping_delta: float,
+        maximize_metric: bool,
         device: torch.device,
-        epochs: int = 50,
-        base_log_dir: str = "runs",
-        local_artifact_save_dir: str = "artifacts",
-        bucket_name: str = "my-bucket",
-        blob_base_path: str = "artifacts",
     ):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.subset_val_loader = self._create_subset_val_loader(
+            self.validation_subset_ratio
+        )
         self.test_loader = test_loader
         self.optimizer = optimizer
         self.loss = loss
         self.metrics = metrics
         self.device = device
-        self.epochs = epochs
+        self.early_stopping_metric = early_stopping_metric
+        self.early_stopping_delta = early_stopping_delta
+        self.maximize_metric = maximize_metric
+
         model_dir = self._build_model_dir()
-        self.writer = SummaryWriter(Path(base_log_dir) / model_dir)
-        self.local_artifacts_path = Path(local_artifact_save_dir) / model_dir
-        self.bucket = storage.Client().bucket(bucket_name)
-        self.gcloud_artifacts_path = Path(blob_base_path) / model_dir
+        self.writer = SummaryWriter(Path(self._get_tb_log_dir()) / model_dir)
+        self.local_artifacts_path = Path(self.LOCAL_ARTIFACT_SAVE_DIR) / model_dir
+        self.bucket = storage.Client().bucket(self.GCP_BUCKET_NAME)
+        self.gcloud_artifacts_path = Path(self.GCP_BLOB_BASE_PATH) / model_dir
+
+    def _get_tb_log_dir(self) -> Path:
+        if self.IS_RUNNING_ON_CLOUD:
+            return Path(f"gs://{self.GCP_BUCKET_NAME}") / self.TENSORBOARD_LOG_DIR
+        else:
+            return Path(self.TENSORBOARD_LOG_DIR)
 
     def run(self):
         for epoch in range(1, self.epochs + 1):
             train_loss = self._train_epoch(epoch)
-            val_loss, val_metrics, _ = self._validate_epoch(epoch)
+            val_loss, val_metrics, _, should_early_stop = self._validate_epoch(epoch)
 
             self.writer.add_scalar(f"Loss/{self.loss.name}/Train", train_loss, epoch)
             self.writer.add_scalar(f"Loss/{self.loss.name}/Val", val_loss, epoch)
 
             for metric_name, metric_value in val_metrics.items():
                 self.writer.add_scalar(f"Metric/{metric_name}/Val", metric_value, epoch)
+
+            if should_early_stop:
+                print(
+                    f"Early stopping triggered at epoch {epoch}. No improvement in {self.early_stopping_patience} consecutive full validations."
+                )
+                break
 
         test_loss, test_metrics, test_user_metrics = self._test()
 
@@ -93,30 +130,33 @@ class Trainer:
         avg_loss = total_loss / total_samples
         return avg_loss
 
-    def _validate_epoch(self, epoch: int) -> Tuple[float, Dict[str, float]]:
+    def _validate_epoch(self, epoch: int) -> tuple[float, dict[str, float], bool]:
         if epoch % 5 == 0:
-            return self._evaluate(
+            val_loss, val_metrics, _ = self._evaluate(
                 self.val_loader,
                 description=f"Epoch {epoch} - Validation (Full)",
             )
-        else:
-            subset_ratio = 0.1
-            subset_loader = self._create_subset_val_loader(subset_ratio)
-            return self._evaluate(
-                subset_loader,
-                description=f"Epoch {epoch} - Validation (Subset {subset_ratio * 100}%)",
+            should_early_stop = self._should_early_stop(
+                val_metrics[self.early_stopping_metric]
             )
+            return val_loss, val_metrics, should_early_stop
+        else:
+            val_loss, val_metrics, _ = self._evaluate(
+                self.subset_val_loader,
+                description=f"Epoch {epoch} - Validation (Subset {self.validation_subset_ratio * 100}%)",
+            )
+            return val_loss, val_metrics, False
 
-    def _test(self) -> Tuple[float, Dict[str, float]]:
+    def _test(self) -> tuple[float, dict[str, float]]:
         return self._evaluate(self.test_loader, description="Testing")
 
     def _evaluate(
         self, data_loader: DataLoader[TripletSample], description: str
-    ) -> Tuple[float, Dict[str, float], Dict[str, torch.Tensor]]:
+    ) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
         self.model.eval()
 
         total_loss = 0.0
-        user_metrics: Dict[str, List[torch.Tensor]] = {
+        user_metrics: dict[str, list[torch.Tensor]] = {
             metric.name: [] for metric in self.metrics
         }
         total_samples = 0
@@ -154,7 +194,26 @@ class Trainer:
         }
         return avg_loss, avg_metrics, user_metrics
 
-    def _get_hparams(self) -> Dict[str, int | float | str]:
+    def _should_early_stop(self, current_metric: float) -> bool:
+        if self.best_val_metric is None:
+            self.best_val_metric = current_metric
+            return False
+
+        improved = (
+            current_metric > self.best_val_metric + self.early_stopping_delta
+            if self.maximize_metric
+            else current_metric < self.best_val_metric - self.early_stopping_delta
+        )
+
+        if improved:
+            self.best_val_metric = current_metric
+            self.epochs_without_improvement = 0
+        else:
+            self.epochs_without_improvement += 1
+
+        return self.epochs_without_improvement >= self.early_stopping_patience
+
+    def _get_hparams(self) -> dict[str, int | float | str]:
         hparams = {}
         hparams.update(self.model.hparams)
         opt_params = self.optimizer.param_groups[0]
@@ -182,8 +241,8 @@ class Trainer:
     def _save_artifacts(
         self,
         avg_loss: float,
-        avg_metrics: Dict[str, float],
-        user_metrics: Dict[str, torch.Tensor],
+        avg_metrics: dict[str, float],
+        user_metrics: dict[str, torch.Tensor],
     ) -> None:
         print("Saving artifacts to cloud storage...")
         self._save_model()
@@ -195,10 +254,12 @@ class Trainer:
         model_save_path = self.local_artifacts_path / "model.pth"
         self.local_artifacts_path.mkdir(parents=True, exist_ok=True)
         torch.save(self.model.state_dict(), model_save_path)
-        blob = self.bucket.blob(str(self.gcloud_artifacts_path / "model.pth"))
-        blob.upload_from_filename(str(model_save_path))
+        if self.IS_RUNNING_ON_CLOUD:
+            self._save_on_cloud(
+                model_save_path, self.gcloud_artifacts_path / "model.pth"
+            )
 
-    def _save_metrics(self, avg_loss: float, avg_metrics: Dict[str, float]) -> None:
+    def _save_metrics(self, avg_loss: float, avg_metrics: dict[str, float]) -> None:
         result = {}
         result["hparams"] = self._get_hparams()
         result["loss"] = avg_loss
@@ -207,16 +268,23 @@ class Trainer:
         self.local_artifacts_path.mkdir(parents=True, exist_ok=True)
         with open(metrics_save_path, "w") as f:
             json.dump(result, f, indent=2)
-        blob = self.bucket.blob(str(self.gcloud_artifacts_path / "metrics.json"))
-        blob.upload_from_filename(str(metrics_save_path))
+        if self.IS_RUNNING_ON_CLOUD:
+            self._save_on_cloud(
+                metrics_save_path, self.gcloud_artifacts_path / "metrics.json"
+            )
 
-    def _save_user_metrics(self, user_metrics: Dict[str, torch.Tensor]) -> None:
+    def _save_user_metrics(self, user_metrics: dict[str, torch.Tensor]) -> None:
         metrics_artifact_path = self.local_artifacts_path / "user_metrics"
         metrics_artifact_path.mkdir(parents=True, exist_ok=True)
         for metric_name, values in user_metrics.items():
             metric_save_path = metrics_artifact_path / f"{metric_name}.pt"
             torch.save(values.cpu(), metric_save_path)
-            blob = self.bucket.blob(
-                str(self.gcloud_artifacts_path / "user_metrics" / f"{metric_name}.pt")
-            )
-            blob.upload_from_filename(str(metric_save_path))
+            if self.IS_RUNNING_ON_CLOUD:
+                self._save_on_cloud(
+                    metric_save_path,
+                    self.gcloud_artifacts_path / "user_metrics" / f"{metric_name}.pt",
+                )
+
+    def _save_on_cloud(self, local_path: Path, gcloud_path: Path) -> None:
+        blob = self.bucket.blob(str(gcloud_path))
+        blob.upload_from_filename(str(local_path))
