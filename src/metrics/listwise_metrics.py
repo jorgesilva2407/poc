@@ -1,9 +1,17 @@
+"""
+Abstract base class for listwise metric functions.
+"""
+
+from abc import ABC, abstractmethod
 from torch import Tensor
 from torch.nn import Module
-from abc import ABC, abstractmethod
 
 
-class ListwiseMetrics(ABC, Module):
+class ListwiseMetric(ABC, Module):
+    """
+    Abstract base class for listwise metric functions.
+    """
+
     name: str
 
     def __init__(self, name: str):
@@ -25,4 +33,3 @@ class ListwiseMetrics(ABC, Module):
             torch.Tensor: Tensor of shape (n,)
                 Computed metric.
         """
-        pass

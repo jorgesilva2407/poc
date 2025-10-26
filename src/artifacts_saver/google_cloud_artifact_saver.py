@@ -1,12 +1,21 @@
+"""
+ArtifactsSaver implementation that saves artifacts to Google Cloud Storage.
+"""
+
 import json
-import torch
 from pathlib import Path
+import torch
 from google.cloud import storage
-from models.recommender import Recommender
+
+from src.models.recommender import Recommender
 from src.artifacts_saver.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
 
 
 class GoogleCloudArtifactSaver(ArtifactsSaver):
+    """
+    ArtifactsSaver implementation that saves artifacts to Google Cloud Storage.
+    """
+
     def __init__(self, bucket, gcloud_artifacts_path, local_artifacts_path):
         self.bucket = bucket
         self.gcloud_artifacts_path = gcloud_artifacts_path
@@ -43,7 +52,7 @@ class GoogleCloudArtifactSaver(ArtifactsSaver):
         result["metrics"] = metrics
         local_path = self.local_artifacts_path / "metrics.json"
         gcloud_path = self.gcloud_artifacts_path / "metrics.json"
-        with open(local_path, "w") as f:
+        with open(local_path, "w", encoding="utf-8") as f:
             json.dump(result, f)
         self._send_to_bucket(local_path, gcloud_path)
 
@@ -63,6 +72,10 @@ class GoogleCloudArtifactSaver(ArtifactsSaver):
 
 
 class GoogleCloudArtifactSaverBuilder(ArtifactsSaverBuilder):
+    """
+    Builder for GoogleCloudArtifactSaver instances.
+    """
+
     def __init__(
         self, local_artifacts_path: Path, gcp_bucket_name: str, gcp_blob_base_path: Path
     ):

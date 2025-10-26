@@ -1,23 +1,31 @@
+"""
+Trainer module for training, validating, and testing recommender models.
+"""
+
 import torch
 from tqdm import tqdm
 from torch.optim import Optimizer
+from torch.utils.data import DataLoader
+
 from src.models.recommender import Recommender
-from torch.utils.data import DataLoader, Subset
 from src.losses.pairwise_losses import PairwiseLoss
-from src.metrics.listwise_metrics import ListwiseMetrics
+from src.metrics.listwise_metrics import ListwiseMetric
+from src.loggers.logger import LoggerBuilder, DatasetType
 from src.datasets.negative_sampling_dataset import TripletSample
-from src.loggers.logger import Logger, LoggerBuilder, DatasetType
 from artifacts_saver.artifacts_saver import ArtifactsSaverBuilder, ArtifactsSaver
 
 
 class TrainerBuilder:
+    """
+    Builder for creating a Trainer instance.
+    """
+
     def __init__(self):
         self.required_keys = {
             "model",
             "train_loader",
             "val_loader",
             "test_loader",
-            "validation_subset_ratio",
             "optimizer",
             "epochs",
             "loss",
@@ -33,6 +41,9 @@ class TrainerBuilder:
         self._config = {}
 
     def with_model(self, model: Recommender) -> "TrainerBuilder":
+        """
+        Set the recommender model for the trainer.
+        """
         self._config["model"] = model
         return self
 
@@ -41,32 +52,45 @@ class TrainerBuilder:
         train_loader: DataLoader[TripletSample],
         val_loader: DataLoader[TripletSample],
         test_loader: DataLoader[TripletSample],
-        validation_subset_ratio: float = 0.1,
     ) -> "TrainerBuilder":
+        """
+        Set the data loaders for the trainer.
+        """
         self._config["train_loader"] = train_loader
         self._config["val_loader"] = val_loader
         self._config["test_loader"] = test_loader
-        self._config["validation_subset_ratio"] = validation_subset_ratio
         return self
 
     def with_optimizer(
         self, optimizer: Optimizer, epochs: int = 50
     ) -> "TrainerBuilder":
+        """
+        Set the optimizer and number of epochs for the trainer.
+        """
         self._config["optimizer"] = optimizer
         self._config["epochs"] = epochs
         return self
 
     def with_loss(self, loss: PairwiseLoss) -> "TrainerBuilder":
+        """
+        Set the loss function for the trainer.
+        """
         self._config["loss"] = loss
         return self
 
-    def with_metrics(self, metrics: list[ListwiseMetrics]) -> "TrainerBuilder":
+    def with_metrics(self, metrics: list[ListwiseMetric]) -> "TrainerBuilder":
+        """
+        Set the evaluation metrics for the trainer.
+        """
         self._config["metrics"] = metrics
         return self
 
     def with_early_stopping(
         self, metric: str, delta: float, maximize: bool, patience: int = 3
     ) -> "TrainerBuilder":
+        """
+        Set the early stopping criteria for the trainer.
+        """
         self._config["early_stopping_metric"] = metric
         self._config["early_stopping_delta"] = delta
         self._config["maximize_metric"] = maximize
@@ -74,20 +98,32 @@ class TrainerBuilder:
         return self
 
     def with_logger_builder(self, logger_builder: LoggerBuilder) -> "TrainerBuilder":
+        """
+        Set the logger builder for the trainer.
+        """
         self._config["logger_builder"] = logger_builder
         return self
 
     def with_artifacts_saver_builder(
         self, artifacts_saver_builder: ArtifactsSaverBuilder
     ) -> "TrainerBuilder":
+        """
+        Set the artifacts saver builder for the trainer.
+        """
         self._config["artifacts_saver_builder"] = artifacts_saver_builder
         return self
 
     def with_device(self, device: torch.device) -> "TrainerBuilder":
+        """
+        Set the device for the trainer.
+        """
         self._config["device"] = device
         return self
 
     def build(self) -> "Trainer":
+        """
+        Build the trainer with the configured parameters.
+        """
         missing_keys = self.required_keys - self._config.keys()
         if missing_keys:
             raise ValueError(f"Missing configuration for keys: {missing_keys}")
@@ -95,15 +131,38 @@ class TrainerBuilder:
 
 
 class Trainer:
+    """
+    Trainer for recommender models.
+    Args:
+        model (Recommender): The recommender model to be trained.
+        train_loader (DataLoader[TripletSample]): DataLoader for training data.
+        val_loader (DataLoader[TripletSample]): DataLoader for validation data.
+        test_loader (DataLoader[TripletSample]): DataLoader for test data.
+        validation_subset_ratio (float): Ratio of the validation set to use for subset validation.
+        optimizer (Optimizer): Optimizer for training the model.
+        epochs (int): Number of training epochs.
+        loss (PairwiseLoss): Pairwise loss function.
+        metrics (list[ListwiseMetric]): List of listwise metrics to evaluate.
+        early_stopping_metric (str): Metric name to monitor for early stopping.
+        early_stopping_delta (float): Minimum change in the monitored metric to qualify as an
+            improvement.
+        early_stopping_patience (int): Number of epochs with no improvement after which training
+            will be stopped.
+        maximize_metric (bool): Whether to maximize or minimize the early stopping metric.
+        logger_builder (LoggerBuilder): Builder for creating a logger instance.
+        artifacts_saver_builder (ArtifactsSaverBuilder): Builder for creating an artifacts saver
+            instance.
+        device (torch.device): Device to run the training on.
+    """
+
     model: Recommender
     train_loader: DataLoader[TripletSample]
     val_loader: DataLoader[TripletSample]
     test_loader: DataLoader[TripletSample]
-    validation_subset_ratio: float
     optimizer: Optimizer
     epochs: int
     loss: PairwiseLoss
-    metrics: list[ListwiseMetrics]
+    metrics: list[ListwiseMetric]
     early_stopping_metric: str
     early_stopping_delta: float
     early_stopping_patience: int
@@ -121,11 +180,10 @@ class Trainer:
         train_loader: DataLoader[TripletSample],
         val_loader: DataLoader[TripletSample],
         test_loader: DataLoader[TripletSample],
-        validation_subset_ratio: float,
         optimizer: Optimizer,
         epochs: int,
         loss: PairwiseLoss,
-        metrics: list[ListwiseMetrics],
+        metrics: list[ListwiseMetric],
         early_stopping_metric: str,
         early_stopping_delta: float,
         early_stopping_patience: int,
@@ -137,8 +195,6 @@ class Trainer:
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.validation_subset_ratio = validation_subset_ratio
-        self.subset_val_loader = self._create_subset_val_loader(validation_subset_ratio)
         self.test_loader = test_loader
         self.optimizer = optimizer
         self.epochs = epochs
@@ -155,12 +211,13 @@ class Trainer:
         self.artifacts_saver = artifacts_saver_builder.build(model_id)
 
     def run(self):
+        """
+        Run the training, validation, and testing process.
+        """
         with self.logger_builder.build(self._model_hparams_str()) as logger:
             for epoch in range(1, self.epochs + 1):
                 train_loss = self._train_epoch(epoch)
-                val_loss, val_metrics, _, should_early_stop = self._validate_epoch(
-                    epoch
-                )
+                val_loss, val_metrics, should_early_stop = self._validate_epoch(epoch)
 
                 logger.loss(self.loss.name, train_loss, epoch, DatasetType.TRAIN)
                 logger.loss(self.loss.name, val_loss, epoch, DatasetType.VALIDATION)
@@ -168,8 +225,9 @@ class Trainer:
 
                 if should_early_stop:
                     print(
-                        f"Early stopping triggered at epoch {epoch}."
-                        + f"No improvement in {self.early_stopping_patience} consecutive full validations."
+                        f"Early stopping triggered at epoch {epoch}. "
+                        + f"No improvement in {self.early_stopping_patience} consecutive "
+                        + "full validations."
                     )
                     break
 
@@ -216,20 +274,13 @@ class Trainer:
         return avg_loss
 
     def _validate_epoch(self, epoch: int) -> tuple[float, dict[str, float], bool]:
-        if epoch % 5 == 0:
-            val_loss, val_metrics, _ = self._evaluate(
-                self.val_loader, description=f"Epoch {epoch} - Validation (Full)"
-            )
-            should_early_stop = self._should_early_stop(
-                val_metrics[self.early_stopping_metric]
-            )
-            return val_loss, val_metrics, should_early_stop
-        else:
-            val_loss, val_metrics, _ = self._evaluate(
-                self.subset_val_loader,
-                description=f"Epoch {epoch} - Validation (Subset {self.validation_subset_ratio * 100}%)",
-            )
-            return val_loss, val_metrics, False
+        val_loss, val_metrics, _ = self._evaluate(
+            self.val_loader, description=f"Epoch {epoch} - Validation"
+        )
+        should_early_stop = self._should_early_stop(
+            val_metrics[self.early_stopping_metric]
+        )
+        return val_loss, val_metrics, should_early_stop
 
     def _test(self) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
         return self._evaluate(self.test_loader, description="Testing")
@@ -313,12 +364,3 @@ class Trainer:
         hparams = self._get_hparams()
         hparams_str = "_".join([f"{key}-{value}" for key, value in hparams.items()])
         return f"{self.model.name}-{hparams_str}"
-
-    def _create_subset_val_loader(
-        self, subset_ratio: float
-    ) -> DataLoader[TripletSample]:
-        dataset = self.val_loader.dataset
-        subset_size = int(subset_ratio * len(self.val_loader.dataset))
-        subset_indices = torch.randperm(len(dataset))[:subset_size]
-        subset = Subset(dataset, subset_indices)
-        return DataLoader(subset, batch_size=self.val_loader.batch_size, shuffle=False)

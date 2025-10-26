@@ -1,13 +1,26 @@
+"""
+Negative Sampling Dataset for Recommendation Systems.
+"""
+
+from argparse import ArgumentParser
 import torch
 import numpy as np
 import pandas as pd
-from argparse import ArgumentParser
 from torch.utils.data import Dataset
 
 TripletSample = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
 class NegativeSamplingDataset(Dataset[TripletSample]):
+    """
+    Dataset for negative sampling in recommendation systems.
+    Each sample consists of a user, a positive item, and multiple negative items.
+    Args:
+        interactions (pd.DataFrame): DataFrame containing user-item interactions for training.
+        all_interactions (pd.DataFrame): DataFrame containing all user-item interactions.
+        num_negatives (int): Number of negative samples to generate per positive item.
+    """
+
     def __init__(
         self,
         interactions: pd.DataFrame,

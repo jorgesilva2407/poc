@@ -1,9 +1,18 @@
+"""
+Biased Singular Value Decomposition (Biased SVD) recommender model.
+"""
+
 from torch import Tensor
 from torch.nn import Embedding
+
 from src.models.recommender import Recommender
 
 
 class BiasedSVD(Recommender):
+    """
+    Biased Singular Value Decomposition (Biased SVD) recommender model.
+    """
+
     def __init__(self, num_users: int, num_items: int, embedding_dim: int):
         super().__init__("BiasedSVD")
         self.embedding_dim = embedding_dim

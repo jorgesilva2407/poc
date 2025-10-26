@@ -1,9 +1,18 @@
+"""
+TensorBoard logger implementation.
+"""
+
 from pathlib import Path
 from torch.utils.tensorboard import SummaryWriter
+
 from src.loggers.logger import Logger, LoggerBuilder, DatasetType
 
 
 class TensorBoardLogger(Logger):
+    """
+    TensorBoard logger implementation.
+    """
+
     def __init__(self, writer):
         self.writer = writer
 
@@ -21,6 +30,10 @@ class TensorBoardLogger(Logger):
 
 
 class TensorBoardLoggerBuilder(LoggerBuilder):
+    """
+    Builder for TensorBoardLogger instances.
+    """
+
     def __init__(self, tensorboard_log_dir: Path):
         self.tensorboard_log_dir = tensorboard_log_dir
 
