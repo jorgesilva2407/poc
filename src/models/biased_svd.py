@@ -2,10 +2,11 @@
 Biased Singular Value Decomposition (Biased SVD) recommender model.
 """
 
+from argparse import ArgumentParser
 from torch import Tensor
 from torch.nn import Embedding
 
-from src.models.recommender import Recommender
+from src.models.recommender import Recommender, RecommenderBuilder
 
 
 class BiasedSVD(Recommender):
@@ -21,6 +22,12 @@ class BiasedSVD(Recommender):
         self.user_bias = Embedding(num_users, 1)
         self.item_bias = Embedding(num_items, 1)
 
+    @property
+    def hparams(self) -> dict[str, int]:
+        return {
+            "embedding_dim": self.embedding_dim,
+        }
+
     def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
         user_embeds = self.user_embedding(user_ids)
         item_embeds = self.item_embedding(item_ids)
@@ -31,3 +38,27 @@ class BiasedSVD(Recommender):
         prediction = dot_product + user_b + item_b
 
         return prediction
+
+
+class BiasedSVDBuilder(RecommenderBuilder):
+    """
+    Builder class for the Biased SVD recommender model.
+    """
+
+    @property
+    def argparser(self) -> ArgumentParser:
+        parser = super().argparser
+        parser.add_argument(
+            "--embedding-dim",
+            type=int,
+            required=True,
+            help="Dimensionality of the user and item embeddings.",
+        )
+        return parser
+
+    def build(self, args: dict) -> BiasedSVD:
+        return BiasedSVD(
+            num_users=args["num_users"],
+            num_items=args["num_items"],
+            embedding_dim=args["embedding_dim"],
+        )
