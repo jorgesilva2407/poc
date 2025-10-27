@@ -1,0 +1,31 @@
+# Ignore everything by default
+**
+
+# Ignore common cache and hidden directories/files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.DS_Store
+*.egg-info/
+*.egg
+*.idea/
+*.vscode/
+*.pytest_cache/
+*.mypy_cache/
+.env
+.git/
+.gitignore
+
+# Keep only required files/folders
+!pyproject.toml
+!uv.lock
+!.python-version
+!main.py
+!src/
+
+# Re-ignore __pycache__ and pyc files inside src
+src/**/__pycache__/
+src/**/*.pyc
