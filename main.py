@@ -12,10 +12,12 @@ from torch.optim import Adam
 from src.losses.bpr import BPRLoss
 from src.trainer import TrainerBuilder
 from src.metrics.ndcg_at_k import NDCGAtK
+from src.loggers.logger import LoggerBuilder
 from src.models.recommender import Recommender
 from src.models.biased_svd import BiasedSVDBuilder
 from src.models.recommender import RecommenderBuilder
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
+from src.artifacts_saver.artifacts_saver import ArtifactsSaverBuilder
 from src.datasets.precomputed_test_dataset import PrecomputedTestDataset
 from src.datasets.negative_sampling_dataset import NegativeSamplingDataset
 from src.datasets.recommendation_dataset import RecommendationDataset, TripletSample
@@ -26,6 +28,14 @@ from src.artifacts_saver.google_cloud_artifact_saver import (
 
 MODEL_BUILDER_REGISTRY: dict[str, RecommenderBuilder] = {
     "BiasedSVD": BiasedSVDBuilder(),
+}
+
+LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
+    "TensorBoard": TensorBoardLoggerBuilder(),
+}
+
+ARTIFACT_SAVER_REGISTRY: dict[str, ArtifactsSaverBuilder] = {
+    "GoogleCloud": GoogleCloudArtifactSaverBuilder(),
 }
 
 
@@ -140,6 +150,20 @@ def parse_args() -> tuple[str, dict, dict, dict]:
         required=True,
         help="Name of the model to use.",
         choices=MODEL_BUILDER_REGISTRY.keys(),
+    )
+    parser.add_argument(
+        "--logger",
+        type=str,
+        default="TensorBoard",
+        help="Name of the logger to use.",
+        choices=LOGGER_BUILDER_REGISTRY.keys(),
+    )
+    parser.add_argument(
+        "--artifacts-saver",
+        type=str,
+        default="GoogleCloud",
+        help="Name of the artifacts saver to use.",
+        choices=ARTIFACT_SAVER_REGISTRY.keys(),
     )
     known_args, remaining_args = parser.parse_known_args()
     model_name = known_args.model
@@ -314,7 +338,7 @@ def main():
 
     metrics = [NDCGAtK(k=5), NDCGAtK(k=10)]
 
-    device = (
+    device = torch.device(
         "cuda"
         if torch.cuda.is_available()
         else "mps" if torch.backends.mps.is_available() else "cpu"
@@ -343,15 +367,9 @@ def main():
             maximize=True,
             patience=5,
         )
-        .with_logger_builder(
-            logger_builder=TensorBoardLoggerBuilder(tensorboard_log_dir="./logs")
-        )
+        .with_logger_builder(logger_builder=TensorBoardLoggerBuilder())
         .with_artifacts_saver_builder(
-            artifacts_saver_builder=GoogleCloudArtifactSaverBuilder(
-                local_artifacts_path="./artifacts",
-                gcp_bucket_name="your-gcs-bucket-name",
-                gcp_blob_base_path="enhancedgcr/artifacts",
-            )
+            artifacts_saver_builder=GoogleCloudArtifactSaverBuilder()
         )
         .with_device(device=device)
     ).build()

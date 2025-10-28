@@ -7,6 +7,7 @@ from pathlib import Path
 import torch
 from google.cloud import storage
 
+from src.config import ENVIRONMENT
 from src.models.recommender import Recommender
 from src.artifacts_saver.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
 
@@ -76,17 +77,22 @@ class GoogleCloudArtifactSaverBuilder(ArtifactsSaverBuilder):
     Builder for GoogleCloudArtifactSaver instances.
     """
 
-    def __init__(
-        self, local_artifacts_path: Path, gcp_bucket_name: str, gcp_blob_base_path: Path
-    ):
-        super().__init__()
-        self.local_artifacts_path = local_artifacts_path
-        self.gcp_bucket_name = gcp_bucket_name
-        self.gcp_blob_base_path = gcp_blob_base_path
-
     def build(self, model_id: str) -> ArtifactsSaver:
+        gcp_bucket_name = ENVIRONMENT.get(
+            ENVIRONMENT.VARIABLES.GCP_BUCKET_NAME,
+        )
+        gcp_blob_base_path = ENVIRONMENT.get(
+            ENVIRONMENT.VARIABLES.GCP_BLOB_BASE_PATH,
+        )
+
+        if gcp_bucket_name is None or gcp_blob_base_path is None:
+            raise ValueError(
+                f"{ENVIRONMENT.VARIABLES.GCP_BUCKET_NAME} and "
+                f"{ENVIRONMENT.VARIABLES.GCP_BLOB_BASE_PATH} must be set."
+            )
+
         return GoogleCloudArtifactSaver(
-            bucket=storage.Client().bucket(self.gcp_bucket_name),
-            gcloud_artifacts_path=self.gcp_blob_base_path / model_id,
-            local_artifacts_path=self.local_artifacts_path / model_id,
+            bucket=storage.Client().bucket(gcp_bucket_name),
+            gcloud_artifacts_path=Path(gcp_blob_base_path) / model_id,
+            local_artifacts_path=Path("/tmp/artifacts") / model_id,
         )
