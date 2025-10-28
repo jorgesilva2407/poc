@@ -15,7 +15,7 @@ class BiasedSVD(Recommender):
     """
 
     def __init__(self, num_users: int, num_items: int, embedding_dim: int):
-        super().__init__("BiasedSVD")
+        super().__init__("BiasedSVD", num_users, num_items)
         self.embedding_dim = embedding_dim
         self.user_embedding = Embedding(num_users, embedding_dim)
         self.item_embedding = Embedding(num_items, embedding_dim)
@@ -25,7 +25,7 @@ class BiasedSVD(Recommender):
     @property
     def hparams(self) -> dict[str, int]:
         return {
-            "embedding_dim": self.embedding_dim,
+            "emb_dim": self.embedding_dim,
         }
 
     def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
@@ -58,7 +58,7 @@ class BiasedSVDBuilder(RecommenderBuilder):
 
     def build(self, args: dict) -> BiasedSVD:
         return BiasedSVD(
-            num_users=args["num_users"],
-            num_items=args["num_items"],
+            num_users=self._num_users,
+            num_items=self._num_items,
             embedding_dim=args["embedding_dim"],
         )

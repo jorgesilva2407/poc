@@ -14,10 +14,14 @@ class Recommender(ABC, Module):
     """
 
     name: str
+    num_users: int
+    num_items: int
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, num_users: int, num_items: int) -> None:
         super().__init__()
         self.name = name
+        self.num_users = num_users
+        self.num_items = num_items
 
     @property
     @abstractmethod
@@ -51,6 +55,9 @@ class RecommenderBuilder(ABC):
     Abstract base class for recommender model builders.
     """
 
+    _num_users: int
+    _num_items: int
+
     @property
     def argparser(self) -> ArgumentParser:
         """
@@ -73,6 +80,23 @@ class RecommenderBuilder(ABC):
             help="Number of items in the dataset.",
         )
         return parser
+
+    def with_num_users_items(
+        self, num_users: int, num_items: int
+    ) -> "RecommenderBuilder":
+        """
+        Returns a new RecommenderBuilder with specified number of users and items.
+
+        Args:
+            num_users (int): Number of users.
+            num_items (int): Number of items.
+
+        Returns:
+            RecommenderBuilder: A new instance of RecommenderBuilder with updated parameters.
+        """
+        self._num_users = num_users
+        self._num_items = num_items
+        return self
 
     @abstractmethod
     def build(self, args: dict) -> Recommender:
