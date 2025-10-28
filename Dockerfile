@@ -18,6 +18,4 @@ COPY src ./src
 
 ENV PYTHONBUFFERED=1
 
-RUN uv run python --version
-
-CMD ["uv", "run", "main.py"]
+ENTRYPOINT ["uv", "run", "main.py"]
