@@ -155,24 +155,24 @@ class Trainer:
         device (torch.device): Device to run the training on.
     """
 
-    model: Recommender
-    train_loader: DataLoader[TripletSample]
-    val_loader: DataLoader[TripletSample]
-    test_loader: DataLoader[TripletSample]
-    optimizer: Optimizer
-    epochs: int
-    loss: PairwiseLoss
-    metrics: list[ListwiseMetric]
-    early_stopping_metric: str
-    early_stopping_delta: float
-    early_stopping_patience: int
-    maximize_metric: bool
-    logger_builder: LoggerBuilder
-    artifacts_saver: ArtifactsSaver
-    device: torch.device
+    _model: Recommender
+    _train_loader: DataLoader[TripletSample]
+    _val_loader: DataLoader[TripletSample]
+    _test_loader: DataLoader[TripletSample]
+    _optimizer: Optimizer
+    _epochs: int
+    _loss: PairwiseLoss
+    _metrics: list[ListwiseMetric]
+    _early_stopping_metric: str
+    _early_stopping_delta: float
+    _early_stopping_patience: int
+    _maximize_metric: bool
+    _logger_builder: LoggerBuilder
+    _artifacts_saver: ArtifactsSaver
+    _device: torch.device
 
-    epochs_without_improvement: int = 0
-    best_val_metric: float | None = None
+    _epochs_without_improvement: int = 0
+    _best_val_metric: float | None = None
 
     def __init__(
         self,
@@ -192,80 +192,80 @@ class Trainer:
         artifacts_saver_builder: ArtifactsSaverBuilder,
         device: torch.device,
     ):
-        self.model = model
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.test_loader = test_loader
-        self.optimizer = optimizer
-        self.epochs = epochs
-        self.loss = loss
-        self.metrics = metrics
-        self.device = device
-        self.early_stopping_metric = early_stopping_metric
-        self.early_stopping_delta = early_stopping_delta
-        self.early_stopping_patience = early_stopping_patience
-        self.maximize_metric = maximize_metric
+        self._model = model
+        self._train_loader = train_loader
+        self._val_loader = val_loader
+        self._test_loader = test_loader
+        self._optimizer = optimizer
+        self._epochs = epochs
+        self._loss = loss
+        self._metrics = metrics
+        self._device = device
+        self._early_stopping_metric = early_stopping_metric
+        self._early_stopping_delta = early_stopping_delta
+        self._early_stopping_patience = early_stopping_patience
+        self._maximize_metric = maximize_metric
 
         model_id = self._model_hparams_str()
-        self.logger_builder = logger_builder
-        self.artifacts_saver = artifacts_saver_builder.build(model_id)
+        self._logger_builder = logger_builder
+        self._artifacts_saver = artifacts_saver_builder.build(model_id)
 
     def run(self):
         """
         Run the training, validation, and testing process.
         """
-        with self.logger_builder.build(self._model_hparams_str()) as logger:
-            for epoch in range(1, self.epochs + 1):
+        with self._logger_builder.build(self._model_hparams_str()) as logger:
+            for epoch in range(1, self._epochs + 1):
                 train_loss = self._train_epoch(epoch)
                 val_loss, val_metrics, should_early_stop = self._validate_epoch(epoch)
 
-                logger.loss(self.loss.name, train_loss, epoch, DatasetType.TRAIN)
-                logger.loss(self.loss.name, val_loss, epoch, DatasetType.VALIDATION)
+                logger.loss(self._loss.name, train_loss, epoch, DatasetType.TRAIN)
+                logger.loss(self._loss.name, val_loss, epoch, DatasetType.VALIDATION)
                 logger.metrics(val_metrics, epoch, DatasetType.VALIDATION)
 
                 if should_early_stop:
                     print(
                         f"Early stopping triggered at epoch {epoch}. "
-                        + f"No improvement in {self.early_stopping_patience} consecutive "
+                        + f"No improvement in {self._early_stopping_patience} consecutive "
                         + "full validations."
                     )
                     break
 
             test_loss, test_metrics, test_user_metrics = self._test()
 
-            logger.loss(self.loss.name, test_loss, 0, DatasetType.TEST)
+            logger.loss(self._loss.name, test_loss, 0, DatasetType.TEST)
             logger.metrics(test_metrics, 0, DatasetType.TEST)
 
-            self.artifacts_saver.save_artifacts(
+            self._artifacts_saver.save_artifacts(
                 self._get_hparams(),
-                self.model,
+                self._model,
                 test_loss,
                 test_metrics,
                 test_user_metrics,
             )
 
     def _train_epoch(self, epoch: int) -> float:
-        self.model.train()
+        self._model.train()
 
         total_loss = 0.0
         total_samples = 0
 
         for user, pos_item, neg_item in tqdm(
-            self.train_loader, desc=f"Epoch {epoch} - Training"
+            self._train_loader, desc=f"Epoch {epoch} - Training"
         ):
-            user = user.to(self.device)  # Dim (n,)
-            pos_item = pos_item.to(self.device)  # Dim (n,)
-            neg_item = neg_item.to(self.device)  # Dim (n,)
+            user = user.to(self._device)  # Dim (n,)
+            pos_item = pos_item.to(self._device)  # Dim (n,)
+            neg_item = neg_item.to(self._device)  # Dim (n,)
 
-            pos_scores = self.model(user, pos_item)  # Dim (n,)
-            neg_scores = self.model(user, neg_item)  # Dim (n,)
+            pos_scores = self._model(user, pos_item)  # Dim (n,)
+            neg_scores = self._model(user, neg_item)  # Dim (n,)
 
-            loss_value = self.loss(pos_scores, neg_scores)  # Dim (1,)
+            loss_value = self._loss(pos_scores, neg_scores)  # Dim (1,)
             batch_size = user.size(0)
 
-            self.optimizer.zero_grad()
+            self._optimizer.zero_grad()
             loss_value.backward()
-            self.optimizer.step()
+            self._optimizer.step()
 
             total_loss += loss_value.item() * batch_size
             total_samples += batch_size
@@ -275,46 +275,46 @@ class Trainer:
 
     def _validate_epoch(self, epoch: int) -> tuple[float, dict[str, float], bool]:
         val_loss, val_metrics, _ = self._evaluate(
-            self.val_loader, description=f"Epoch {epoch} - Validation"
+            self._val_loader, description=f"Epoch {epoch} - Validation"
         )
         should_early_stop = self._should_early_stop(
-            val_metrics[self.early_stopping_metric]
+            val_metrics[self._early_stopping_metric]
         )
         return val_loss, val_metrics, should_early_stop
 
     def _test(self) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
-        return self._evaluate(self.test_loader, description="Testing")
+        return self._evaluate(self._test_loader, description="Testing")
 
     def _evaluate(
         self, data_loader: DataLoader[TripletSample], description: str
     ) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
-        self.model.eval()
+        self._model.eval()
 
         total_loss = 0.0
         user_metrics: dict[str, list[torch.Tensor]] = {
-            metric.name: [] for metric in self.metrics
+            metric.name: [] for metric in self._metrics
         }
         total_samples = 0
 
         for user, pos_item, neg_items in tqdm(data_loader, desc=description):
-            user = user.to(self.device)  # Dim (n,)
-            pos_item = pos_item.to(self.device)  # Dim (n,)
-            neg_items = neg_items.to(self.device)  # Dim (n, m)
+            user = user.to(self._device)  # Dim (n,)
+            pos_item = pos_item.to(self._device)  # Dim (n,)
+            neg_items = neg_items.to(self._device)  # Dim (n, m)
 
-            pos_scores = self.model(user, pos_item)  # Dim (n,)
+            pos_scores = self._model(user, pos_item)  # Dim (n,)
 
             batch_size, num_negatives = neg_items.shape
             user_expanded = (
                 user.unsqueeze(1).expand(-1, num_negatives).reshape(-1)
             )  # Dim (n*m,)
             neg_items_flat = neg_items.reshape(-1)  # Dim (n*m,)
-            neg_scores_flat = self.model(user_expanded, neg_items_flat)  # Dim (n*m,)
+            neg_scores_flat = self._model(user_expanded, neg_items_flat)  # Dim (n*m,)
             neg_scores = neg_scores_flat.view(batch_size, num_negatives)  # Dim (n, m)
 
             # Only use the first negative sample for loss computation
-            loss_value = self.loss(pos_scores, neg_scores[:, 0])  # Dim (1,)
+            loss_value = self._loss(pos_scores, neg_scores[:, 0])  # Dim (1,)
 
-            for metric in self.metrics:
+            for metric in self._metrics:
                 metric_value: torch.Tensor = metric(pos_scores, neg_scores)  # Dim (n,)
                 user_metrics[metric.name].append(metric_value)
 
@@ -331,31 +331,31 @@ class Trainer:
         return avg_loss, avg_metrics, user_metrics
 
     def _should_early_stop(self, current_metric: float) -> bool:
-        if self.best_val_metric is None:
-            self.best_val_metric = current_metric
+        if self._best_val_metric is None:
+            self._best_val_metric = current_metric
             return False
 
         improved = (
-            current_metric > self.best_val_metric + self.early_stopping_delta
-            if self.maximize_metric
-            else current_metric < self.best_val_metric - self.early_stopping_delta
+            current_metric > self._best_val_metric + self._early_stopping_delta
+            if self._maximize_metric
+            else current_metric < self._best_val_metric - self._early_stopping_delta
         )
 
         if improved:
-            self.best_val_metric = current_metric
-            self.epochs_without_improvement = 0
+            self._best_val_metric = current_metric
+            self._epochs_without_improvement = 0
         else:
-            self.epochs_without_improvement += 1
+            self._epochs_without_improvement += 1
 
-        return self.epochs_without_improvement >= self.early_stopping_patience
+        return self._epochs_without_improvement >= self._early_stopping_patience
 
     def _get_hparams(self) -> dict[str, int | float | str]:
         hparams = {}
-        hparams.update(self.model.hparams)
-        opt_params = self.optimizer.param_groups[0]
+        hparams.update(self._model.hparams)
+        opt_params = self._optimizer.param_groups[0]
         hparams["lr"] = opt_params["lr"]
         hparams["weight_decay"] = opt_params["weight_decay"]
-        hparams["batch_size"] = self.train_loader.batch_size
+        hparams["batch_size"] = self._train_loader.batch_size
         return hparams
 
     def _model_hparams_str(
@@ -363,4 +363,4 @@ class Trainer:
     ) -> str:
         hparams = self._get_hparams()
         hparams_str = "_".join([f"{key}-{value}" for key, value in hparams.items()])
-        return f"{self.model.name}-{hparams_str}"
+        return f"{self._model.name}-{hparams_str}"

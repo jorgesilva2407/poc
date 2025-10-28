@@ -56,7 +56,7 @@ class BiasedSVDBuilder(RecommenderBuilder):
         )
         return parser
 
-    def build(self, args: dict) -> BiasedSVD:
+    def _build(self, args: dict) -> BiasedSVD:
         return BiasedSVD(
             num_users=self._num_users,
             num_items=self._num_items,

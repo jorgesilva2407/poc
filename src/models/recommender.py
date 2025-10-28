@@ -98,10 +98,32 @@ class RecommenderBuilder(ABC):
         self._num_items = num_items
         return self
 
-    @abstractmethod
     def build(self, args: dict) -> Recommender:
         """
         Build and return a recommender model instance.
+
+        Args:
+            args (dict): A dictionary of arguments for building the model.
+
+        Returns:
+            Recommender: An instance of the recommender model.
+        """
+        self._validate()
+        return self._build(args)
+
+    def _validate(self):
+        """
+        Validate the builder's configuration.
+        """
+        if not self._num_users or not self._num_items:
+            raise ValueError(
+                "Number of users and items must be set before building the model."
+            )
+
+    @abstractmethod
+    def _build(self, args: dict) -> Recommender:
+        """
+        Internal method to build the recommender model after validation.
 
         Args:
             args (dict): A dictionary of arguments for building the model.
