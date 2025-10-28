@@ -11,7 +11,7 @@ from src.models.recommender import Recommender
 from src.losses.pairwise_losses import PairwiseLoss
 from src.metrics.listwise_metrics import ListwiseMetric
 from src.loggers.logger import LoggerBuilder, DatasetType
-from src.datasets.negative_sampling_dataset import TripletSample
+from datasets.recommendation_dataset import TripletSample
 from artifacts_saver.artifacts_saver import ArtifactsSaverBuilder, ArtifactsSaver
 
 

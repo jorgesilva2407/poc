@@ -6,12 +6,11 @@ from argparse import ArgumentParser
 import torch
 import numpy as np
 import pandas as pd
-from torch.utils.data import Dataset
 
-TripletSample = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+from src.datasets.recommendation_dataset import TripletSample, RecommendationDataset
 
 
-class NegativeSamplingDataset(Dataset[TripletSample]):
+class NegativeSamplingDataset(RecommendationDataset):
     """
     Dataset for negative sampling in recommendation systems.
     Each sample consists of a user, a positive item, and multiple negative items.
