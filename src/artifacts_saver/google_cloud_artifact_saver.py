@@ -4,10 +4,10 @@ ArtifactsSaver implementation that saves artifacts to Google Cloud Storage.
 
 import json
 from pathlib import Path
+
 import torch
 from google.cloud import storage
 
-from src.config import ENVIRONMENT
 from src.models.recommender import Recommender
 from src.artifacts_saver.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
 
@@ -77,22 +77,36 @@ class GoogleCloudArtifactSaverBuilder(ArtifactsSaverBuilder):
     Builder for GoogleCloudArtifactSaver instances.
     """
 
-    def build(self, model_id: str) -> ArtifactsSaver:
-        gcp_bucket_name = ENVIRONMENT.get(
-            ENVIRONMENT.VARIABLES.GCP_BUCKET_NAME,
+    @property
+    def argparser(self):
+        parser = super().argparser
+        parser.add_argument(
+            "--gcs-bucket-name",
+            type=str,
+            required=True,
+            help="Google Cloud Storage bucket name for saving artifacts.",
         )
-        gcp_blob_base_path = ENVIRONMENT.get(
-            ENVIRONMENT.VARIABLES.GCP_BLOB_BASE_PATH,
+        parser.add_argument(
+            "--gcs-blob-base-path",
+            type=str,
+            required=True,
+            help="Base path in the GCS bucket for saving artifacts.",
         )
+        parser.add_argument(
+            "--temp-local-path",
+            type=str,
+            default="/tmp/artifacts",
+            help="Temporary local path for storing artifacts before uploading to GCS.",
+        )
+        return parser
 
-        if gcp_bucket_name is None or gcp_blob_base_path is None:
-            raise ValueError(
-                f"{ENVIRONMENT.VARIABLES.GCP_BUCKET_NAME} and "
-                f"{ENVIRONMENT.VARIABLES.GCP_BLOB_BASE_PATH} must be set."
-            )
+    def _build(self, model_id: str) -> ArtifactsSaver:
+        gcp_bucket_name = self._cli_args["gcs_bucket_name"]
+        gcp_blob_base_path = self._cli_args["gcs_blob_base_path"]
+        temp_local_path = self._cli_args["temp_local_path"]
 
         return GoogleCloudArtifactSaver(
             bucket=storage.Client().bucket(gcp_bucket_name),
             gcloud_artifacts_path=Path(gcp_blob_base_path) / model_id,
-            local_artifacts_path=Path("/tmp/artifacts") / model_id,
+            local_artifacts_path=Path(temp_local_path) / model_id,
         )

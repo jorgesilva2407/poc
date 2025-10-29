@@ -1,31 +1,28 @@
-# Ignore everything by default
-**
-
-# Ignore common cache and hidden directories/files
+# Python-generated files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.swp
-*.swo
-*.DS_Store
-*.egg-info/
-*.egg
-*.idea/
-*.vscode/
-*.pytest_cache/
-*.mypy_cache/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment Variables
 .env
-.git/
+.env.example
+.env.gcloud
+
+# git files
 .gitignore
+.git/
 
-# Keep only required files/folders
-!pyproject.toml
-!uv.lock
-!.python-version
-!main.py
-!src/
+# Sensitive files
+service-account-key.json
 
-# Re-ignore __pycache__ and pyc files inside src
-src/**/__pycache__/
-src/**/*.pyc
+# Other data
+data/*
+runs/*
+notebooks/*
+scripts/*

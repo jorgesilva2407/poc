@@ -2,8 +2,10 @@
 Abstract base classes for logging training progress, losses, and metrics.
 """
 
-from abc import ABC, abstractmethod
 from enum import Enum
+from abc import ABC, abstractmethod
+
+from src.configurable_builder import ConfigurableBuilder
 
 
 class DatasetType(Enum):
@@ -29,18 +31,11 @@ class Logger(ABC):
     def metrics(self, metrics: dict, epoch: int, dataset: DatasetType):
         """Log various metrics for a given epoch."""
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
+    def close(self):
+        """Close any resources held by the logger, if necessary."""
 
 
-class LoggerBuilder(ABC):
+class LoggerBuilder(ConfigurableBuilder[Logger], ABC):
     """
     Abstract base class for building Logger instances.
     """
-
-    @abstractmethod
-    def build(self, model_id: str) -> Logger:
-        """Build and return a Logger instance."""

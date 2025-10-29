@@ -3,9 +3,11 @@ Abstract base class for saving model artifacts such as weights and evaluation me
 """
 
 from abc import ABC, abstractmethod
+
 from torch import Tensor
 
 from src.models.recommender import Recommender
+from src.configurable_builder import ConfigurableBuilder
 
 
 class ArtifactsSaver(ABC):
@@ -25,11 +27,7 @@ class ArtifactsSaver(ABC):
         """Save model artifacts such as weights and evaluation metrics."""
 
 
-class ArtifactsSaverBuilder(ABC):
+class ArtifactsSaverBuilder(ConfigurableBuilder[ArtifactsSaver], ABC):
     """
     Abstract base class for building ArtifactsSaver instances.
     """
-
-    @abstractmethod
-    def build(self, model_id: str) -> ArtifactsSaver:
-        """Build and return an ArtifactsSaver instance."""

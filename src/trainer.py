@@ -2,6 +2,8 @@
 Trainer module for training, validating, and testing recommender models.
 """
 
+import sys
+
 import torch
 from tqdm import tqdm
 from torch.optim import Optimizer
@@ -11,123 +13,11 @@ from src.models.recommender import Recommender
 from src.losses.pairwise_losses import PairwiseLoss
 from src.metrics.listwise_metrics import ListwiseMetric
 from src.loggers.logger import LoggerBuilder, DatasetType
-from datasets.recommendation_dataset import TripletSample
-from artifacts_saver.artifacts_saver import ArtifactsSaverBuilder, ArtifactsSaver
-
-
-class TrainerBuilder:
-    """
-    Builder for creating a Trainer instance.
-    """
-
-    def __init__(self):
-        self.required_keys = {
-            "model",
-            "train_loader",
-            "val_loader",
-            "test_loader",
-            "optimizer",
-            "epochs",
-            "loss",
-            "metrics",
-            "early_stopping_metric",
-            "early_stopping_delta",
-            "early_stopping_patience",
-            "maximize_metric",
-            "logger_builder",
-            "artifacts_saver_builder",
-            "device",
-        }
-        self._config = {}
-
-    def with_model(self, model: Recommender) -> "TrainerBuilder":
-        """
-        Set the recommender model for the trainer.
-        """
-        self._config["model"] = model
-        return self
-
-    def with_data_loaders(
-        self,
-        train_loader: DataLoader[TripletSample],
-        val_loader: DataLoader[TripletSample],
-        test_loader: DataLoader[TripletSample],
-    ) -> "TrainerBuilder":
-        """
-        Set the data loaders for the trainer.
-        """
-        self._config["train_loader"] = train_loader
-        self._config["val_loader"] = val_loader
-        self._config["test_loader"] = test_loader
-        return self
-
-    def with_optimizer(
-        self, optimizer: Optimizer, epochs: int = 50
-    ) -> "TrainerBuilder":
-        """
-        Set the optimizer and number of epochs for the trainer.
-        """
-        self._config["optimizer"] = optimizer
-        self._config["epochs"] = epochs
-        return self
-
-    def with_loss(self, loss: PairwiseLoss) -> "TrainerBuilder":
-        """
-        Set the loss function for the trainer.
-        """
-        self._config["loss"] = loss
-        return self
-
-    def with_metrics(self, metrics: list[ListwiseMetric]) -> "TrainerBuilder":
-        """
-        Set the evaluation metrics for the trainer.
-        """
-        self._config["metrics"] = metrics
-        return self
-
-    def with_early_stopping(
-        self, metric: str, delta: float, maximize: bool, patience: int = 3
-    ) -> "TrainerBuilder":
-        """
-        Set the early stopping criteria for the trainer.
-        """
-        self._config["early_stopping_metric"] = metric
-        self._config["early_stopping_delta"] = delta
-        self._config["maximize_metric"] = maximize
-        self._config["early_stopping_patience"] = patience
-        return self
-
-    def with_logger_builder(self, logger_builder: LoggerBuilder) -> "TrainerBuilder":
-        """
-        Set the logger builder for the trainer.
-        """
-        self._config["logger_builder"] = logger_builder
-        return self
-
-    def with_artifacts_saver_builder(
-        self, artifacts_saver_builder: ArtifactsSaverBuilder
-    ) -> "TrainerBuilder":
-        """
-        Set the artifacts saver builder for the trainer.
-        """
-        self._config["artifacts_saver_builder"] = artifacts_saver_builder
-        return self
-
-    def with_device(self, device: torch.device) -> "TrainerBuilder":
-        """
-        Set the device for the trainer.
-        """
-        self._config["device"] = device
-        return self
-
-    def build(self) -> "Trainer":
-        """
-        Build the trainer with the configured parameters.
-        """
-        missing_keys = self.required_keys - self._config.keys()
-        if missing_keys:
-            raise ValueError(f"Missing configuration for keys: {missing_keys}")
-        return Trainer(**self._config)
+from src.datasets.recommendation_dataset import TripletSample
+from src.artifacts_saver.artifacts_saver import (
+    ArtifactsSaver,
+    ArtifactsSaverBuilder,
+)
 
 
 class Trainer:
@@ -167,7 +57,7 @@ class Trainer:
     _early_stopping_delta: float
     _early_stopping_patience: int
     _maximize_metric: bool
-    _logger_builder: LoggerBuilder
+    _logger: LoggerBuilder
     _artifacts_saver: ArtifactsSaver
     _device: torch.device
 
@@ -207,42 +97,42 @@ class Trainer:
         self._maximize_metric = maximize_metric
 
         model_id = self._model_hparams_str()
-        self._logger_builder = logger_builder
+        self._logger = logger_builder.build(model_id)
         self._artifacts_saver = artifacts_saver_builder.build(model_id)
 
     def run(self):
         """
         Run the training, validation, and testing process.
         """
-        with self._logger_builder.build(self._model_hparams_str()) as logger:
-            for epoch in range(1, self._epochs + 1):
-                train_loss = self._train_epoch(epoch)
-                val_loss, val_metrics, should_early_stop = self._validate_epoch(epoch)
+        for epoch in range(1, self._epochs + 1):
+            train_loss = self._train_epoch(epoch)
+            val_loss, val_metrics, should_early_stop = self._validate_epoch(epoch)
 
-                logger.loss(self._loss.name, train_loss, epoch, DatasetType.TRAIN)
-                logger.loss(self._loss.name, val_loss, epoch, DatasetType.VALIDATION)
-                logger.metrics(val_metrics, epoch, DatasetType.VALIDATION)
+            self._logger.loss(self._loss.name, train_loss, epoch, DatasetType.TRAIN)
+            self._logger.loss(self._loss.name, val_loss, epoch, DatasetType.VALIDATION)
+            self._logger.metrics(val_metrics, epoch, DatasetType.VALIDATION)
 
-                if should_early_stop:
-                    print(
-                        f"Early stopping triggered at epoch {epoch}. "
-                        + f"No improvement in {self._early_stopping_patience} consecutive "
-                        + "full validations."
-                    )
-                    break
+            if should_early_stop:
+                print(
+                    f"Early stopping triggered at epoch {epoch}. "
+                    + f"No improvement in {self._early_stopping_patience} consecutive "
+                    + "full validations.",
+                    file=sys.stderr,
+                )
+                break
 
-            test_loss, test_metrics, test_user_metrics = self._test()
+        test_loss, test_metrics, test_user_metrics = self._test()
 
-            logger.loss(self._loss.name, test_loss, 0, DatasetType.TEST)
-            logger.metrics(test_metrics, 0, DatasetType.TEST)
+        self._logger.loss(self._loss.name, test_loss, 0, DatasetType.TEST)
+        self._logger.metrics(test_metrics, 0, DatasetType.TEST)
 
-            self._artifacts_saver.save_artifacts(
-                self._get_hparams(),
-                self._model,
-                test_loss,
-                test_metrics,
-                test_user_metrics,
-            )
+        self._artifacts_saver.save_artifacts(
+            self._get_hparams(),
+            self._model,
+            test_loss,
+            test_metrics,
+            test_user_metrics,
+        )
 
     def _train_epoch(self, epoch: int) -> float:
         self._model.train()
@@ -285,6 +175,7 @@ class Trainer:
     def _test(self) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
         return self._evaluate(self._test_loader, description="Testing")
 
+    @torch.no_grad()
     def _evaluate(
         self, data_loader: DataLoader[TripletSample], description: str
     ) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:

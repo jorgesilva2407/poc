@@ -9,13 +9,13 @@ import pandas as pd
 from torch.utils.data import DataLoader
 from torch.optim import Adam
 
+from src.trainer import Trainer
 from src.losses.bpr import BPRLoss
-from src.trainer import TrainerBuilder
 from src.metrics.ndcg_at_k import NDCGAtK
 from src.loggers.logger import LoggerBuilder
 from src.models.recommender import Recommender
-from src.models.biased_svd import BiasedSVDBuilder
-from src.models.recommender import RecommenderBuilder
+from src.models.biased_svd import BiasedSVDFactory
+from src.models.recommender import RecommenderFactory
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
 from src.artifacts_saver.artifacts_saver import ArtifactsSaverBuilder
 from src.datasets.precomputed_test_dataset import PrecomputedTestDataset
@@ -26,8 +26,8 @@ from src.artifacts_saver.google_cloud_artifact_saver import (
 )
 
 
-MODEL_BUILDER_REGISTRY: dict[str, RecommenderBuilder] = {
-    "BiasedSVD": BiasedSVDBuilder(),
+MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
+    "BiasedSVD": BiasedSVDFactory(),
 }
 
 LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
@@ -37,6 +37,65 @@ LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
 ARTIFACT_SAVER_REGISTRY: dict[str, ArtifactsSaverBuilder] = {
     "GoogleCloud": GoogleCloudArtifactSaverBuilder(),
 }
+
+
+def parse_model_args(
+    model_name: str, remaining_args: list[str]
+) -> tuple[RecommenderFactory, dict, list[str]]:
+    """
+    Parse model arguments from the command line.
+
+    Args:
+        model_name (str): Name of the model to parse arguments for.
+        remaining_args (list[str]): List of remaining command line arguments.
+
+    Returns:
+        Tuple containing a dictionary of model arguments and the remaining arguments.
+    """
+    parser = MODEL_FACTORY_REGISTRY[model_name].argparser
+    model_args, remaining_args = parser.parse_known_args(remaining_args)
+    model_factory = MODEL_FACTORY_REGISTRY[model_name]
+    return model_factory, vars(model_args), remaining_args
+
+
+def parse_logger_args(
+    logger_name: str, args: list[str]
+) -> tuple[LoggerBuilder, list[str]]:
+    """
+    Parse logger arguments from the command line.
+
+    Args:
+        remaining_args (list[str]): List of remaining command line arguments.
+
+    Returns:
+        Tuple containing a LoggerBuilder instance and the remaining arguments.
+    """
+    parser = LOGGER_BUILDER_REGISTRY[logger_name].argparser
+    logger_args, remaining_args = parser.parse_known_args(args)
+    logger_builder = LOGGER_BUILDER_REGISTRY[logger_name].with_configuration(
+        vars(logger_args)
+    )
+    return logger_builder, remaining_args
+
+
+def parse_artifacts_saver_args(
+    artifacts_saver_name: str, args: list[str]
+) -> tuple[ArtifactsSaverBuilder, list[str]]:
+    """
+    Parse artifacts saver arguments from the command line.
+
+    Args:
+        remaining_args (list[str]): List of remaining command line arguments.
+
+    Returns:
+        Tuple containing an ArtifactsSaverBuilder instance and the remaining arguments.
+    """
+    parser = ARTIFACT_SAVER_REGISTRY[artifacts_saver_name].argparser
+    artifacts_saver_args, remaining_args = parser.parse_known_args(args)
+    artifacts_saver_builder = ARTIFACT_SAVER_REGISTRY[
+        artifacts_saver_name
+    ].with_configuration(vars(artifacts_saver_args))
+    return artifacts_saver_builder, remaining_args
 
 
 def parse_optimizer_args(remaining_args: list[str]) -> tuple[dict, list[str]]:
@@ -117,31 +176,15 @@ def parse_dataloader_args(remaining_args: list[str]) -> tuple[dict, list[str]]:
     return vars(dataloader_args), remaining_args
 
 
-def parse_model_args(
-    model_name: str, remaining_args: list[str]
-) -> tuple[dict, list[str]]:
-    """
-    Parse model arguments from the command line.
-
-    Args:
-        model_name (str): Name of the model to parse arguments for.
-        remaining_args (list[str]): List of remaining command line arguments.
-
-    Returns:
-        Tuple containing a dictionary of model arguments and the remaining arguments.
-    """
-    parser = MODEL_BUILDER_REGISTRY[model_name].argparser
-    model_args, remaining_args = parser.parse_known_args(remaining_args)
-    return vars(model_args), remaining_args
-
-
-def parse_args() -> tuple[str, dict, dict, dict]:
+def parse_args() -> (
+    tuple[RecommenderFactory, dict, LoggerBuilder, ArtifactsSaverBuilder, dict, dict]
+):
     """
     Parse command line arguments.
 
     Returns:
-        Tuple containing model name, model parameters, optimizer parameters and dataloader
-        parameters.
+        Tuple containing model factory, model hyper-parameters, logger builder,
+        artifacts saver builder, optimizer parameters, and dataloader parameters.
     """
     parser = ArgumentParser(description="EnhancedGCR Training and Evaluation")
     parser.add_argument(
@@ -149,7 +192,7 @@ def parse_args() -> tuple[str, dict, dict, dict]:
         type=str,
         required=True,
         help="Name of the model to use.",
-        choices=MODEL_BUILDER_REGISTRY.keys(),
+        choices=MODEL_FACTORY_REGISTRY.keys(),
     )
     parser.add_argument(
         "--logger",
@@ -167,14 +210,29 @@ def parse_args() -> tuple[str, dict, dict, dict]:
     )
     known_args, remaining_args = parser.parse_known_args()
     model_name = known_args.model
+    logger_name = known_args.logger
+    artifacts_saver_name = known_args.artifacts_saver
 
-    model_params, remaining_args = parse_model_args(model_name, remaining_args)
+    model_factory, model_params, remaining_args = parse_model_args(
+        model_name, remaining_args
+    )
+    logger_builder, remaining_args = parse_logger_args(logger_name, remaining_args)
+    artifacts_saver_builder, remaining_args = parse_artifacts_saver_args(
+        artifacts_saver_name, remaining_args
+    )
     optimizer_params, remaining_args = parse_optimizer_args(remaining_args)
     dataloader_params, remaining_args = parse_dataloader_args(remaining_args)
 
     print("Ignored arguments:", remaining_args)
 
-    return model_name, model_params, optimizer_params, dataloader_params
+    return (
+        model_factory,
+        model_params,
+        logger_builder,
+        artifacts_saver_builder,
+        optimizer_params,
+        dataloader_params,
+    )
 
 
 def load_dataframes(
@@ -218,11 +276,8 @@ def build_model(
     Returns:
         Recommender: Instantiated model.
     """
-    model_builder = MODEL_BUILDER_REGISTRY[model_name]
-    model = model_builder.with_num_users_items(
-        num_users=num_users,
-        num_items=num_items,
-    ).build(model_params)
+    model_factory = MODEL_FACTORY_REGISTRY[model_name]
+    model = model_factory.create(num_users, num_items, model_params)
     return model
 
 
@@ -314,18 +369,24 @@ def main():
     """
     Main function to parse arguments and print them.
     """
-    model_name, model_params, optimizer_params, dataloader_params = parse_args()
+    (
+        model_factory,
+        model_params,
+        logger_builder,
+        artifacts_saver_builder,
+        optimizer_params,
+        dataloader_params,
+    ) = parse_args()
 
     all_df, train_df, validation_df, test_df = load_dataframes(dataloader_params)
     batch_size = dataloader_params["batch_size"]
     num_users = all_df["user_id"].nunique()
     num_items = all_df["item_id"].nunique()
 
-    model = build_model(
-        model_name=model_name,
-        model_params=model_params,
+    model = model_factory.create(
         num_users=num_users,
         num_items=num_items,
+        model_params=model_params,
     )
 
     train_loader, validation_loader, test_loader = build_data_loaders(
@@ -344,41 +405,29 @@ def main():
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    trainer = (
-        TrainerBuilder()
-        .with_model(model)
-        .with_data_loaders(
-            train_loader=train_loader,
-            val_loader=validation_loader,
-            test_loader=test_loader,
-        )
-        .with_optimizer(
-            Adam(
-                params=model.parameters(),
-                lr=optimizer_params["learning_rate"],
-                weight_decay=optimizer_params["weight_decay"],
-            )
-        )
-        .with_loss(BPRLoss())
-        .with_metrics(metrics)
-        .with_early_stopping(
-            metric=metrics[0],
-            delta=0.001,
-            maximize=True,
-            patience=5,
-        )
-        .with_logger_builder(logger_builder=TensorBoardLoggerBuilder())
-        .with_artifacts_saver_builder(
-            artifacts_saver_builder=GoogleCloudArtifactSaverBuilder()
-        )
-        .with_device(device=device)
-    ).build()
+    trainer = Trainer(
+        model=model,
+        train_loader=train_loader,
+        val_loader=validation_loader,
+        test_loader=test_loader,
+        optimizer=Adam(
+            params=model.parameters(),
+            lr=optimizer_params["learning_rate"],
+            weight_decay=optimizer_params["weight_decay"],
+        ),
+        epochs=50,
+        loss=BPRLoss(),
+        metrics=metrics,
+        early_stopping_metric=metrics[0].name,
+        early_stopping_delta=0.001,
+        early_stopping_patience=5,
+        maximize_metric=True,
+        logger_builder=logger_builder,
+        artifacts_saver_builder=artifacts_saver_builder,
+        device=device,
+    )
 
     trainer.run()
-
-    # trainer = TrainerBuilder()
-    #     .with_device()
-    #     .build()
 
 
 if __name__ == "__main__":

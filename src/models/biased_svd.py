@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from torch import Tensor
 from torch.nn import Embedding
 
-from src.models.recommender import Recommender, RecommenderBuilder
+from src.models.recommender import Recommender, RecommenderFactory
 
 
 class BiasedSVD(Recommender):
@@ -40,7 +40,7 @@ class BiasedSVD(Recommender):
         return prediction
 
 
-class BiasedSVDBuilder(RecommenderBuilder):
+class BiasedSVDFactory(RecommenderFactory):
     """
     Builder class for the Biased SVD recommender model.
     """
@@ -56,9 +56,6 @@ class BiasedSVDBuilder(RecommenderBuilder):
         )
         return parser
 
-    def _build(self, args: dict) -> BiasedSVD:
-        return BiasedSVD(
-            num_users=self._num_users,
-            num_items=self._num_items,
-            embedding_dim=args["embedding_dim"],
-        )
+    def create(self, num_users: int, num_items: int, args: dict) -> Recommender:
+        embedding_dim = args["embedding_dim"]
+        return BiasedSVD(num_users, num_items, embedding_dim)

@@ -3,9 +3,10 @@ TensorBoard logger implementation.
 """
 
 from pathlib import Path
+
 from torch.utils.tensorboard import SummaryWriter
 
-from src.config import ENVIRONMENT
+from src.environment import ENVIRONMENT
 from src.loggers.logger import Logger, LoggerBuilder, DatasetType
 
 
@@ -26,7 +27,7 @@ class TensorBoardLogger(Logger):
             tag = f"Metrics/{metric_name}/{dataset.value}"
             self.writer.add_scalar(tag, metric_value, epoch)
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def close(self):
         self.writer.close()
 
 
@@ -35,14 +36,18 @@ class TensorBoardLoggerBuilder(LoggerBuilder):
     Builder for TensorBoardLogger instances.
     """
 
-    def __init__(self):
-        log_dir = ENVIRONMENT.get(ENVIRONMENT.VARIABLES.TENSORBOARD_LOG_DIR)
-        self.tensorboard_log_dir = Path(log_dir) if log_dir else None
+    @property
+    def argparser(self):
+        parser = super().argparser
+        parser.add_argument(
+            "--tensorboard-log-dir",
+            type=str,
+            default=ENVIRONMENT.get(ENVIRONMENT.VARIABLES.TENSORBOARD_LOG_DIR),
+            help="Directory to store TensorBoard logs.",
+        )
+        return parser
 
-    def build(self, model_id: str) -> Logger:
-        if self.tensorboard_log_dir is None:
-            raise ValueError(
-                f"{ENVIRONMENT.VARIABLES.TENSORBOARD_LOG_DIR} environment variable is not set."
-            )
-        writer = SummaryWriter(log_dir=self.tensorboard_log_dir / model_id)
+    def _build(self, model_id: str) -> Logger:
+        log_dir = self._cli_args["tensorboard_log_dir"]
+        writer = SummaryWriter(log_dir=Path(log_dir) / model_id)
         return TensorBoardLogger(writer)
