@@ -17,16 +17,6 @@ class PairwiseLoss(ABC, Module):
         super().__init__()
         self.name = name
 
-    @property
-    def name(self) -> str:
-        """
-        Get the name of the pairwise loss function.
-
-        Returns:
-            str: Name of the pairwise loss function.
-        """
-        return self.name
-
     @abstractmethod
     def forward(self, pos_scores, neg_scores):
         """

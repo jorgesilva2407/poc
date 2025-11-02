@@ -4,8 +4,20 @@ Abstract base class for recommender models.
 
 from argparse import ArgumentParser
 from abc import ABC, abstractmethod
+from typing import NamedTuple
 from torch import Tensor
 from torch.nn import Module
+from pandas import DataFrame
+
+
+class Context(NamedTuple):
+    """
+    Context information for the recommender model.
+    """
+
+    num_users: int
+    num_items: int
+    interactions_df: DataFrame
 
 
 class Recommender(ABC, Module):
@@ -69,7 +81,7 @@ class RecommenderFactory(ABC):
         return ArgumentParser(add_help=False)
 
     @abstractmethod
-    def create(self, num_users: int, num_items: int, args: dict) -> Recommender:
+    def create(self, context: Context, args: dict) -> Recommender:
         """
         Build and return a recommender model instance.
 

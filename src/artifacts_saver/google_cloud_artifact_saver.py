@@ -23,18 +23,6 @@ class GoogleCloudArtifactSaver(ArtifactsSaver):
         self.local_artifacts_path = local_artifacts_path
         self.local_artifacts_path.mkdir(parents=True, exist_ok=True)
 
-    def save_artifacts(
-        self,
-        hparams: dict[str, int | float | str],
-        model: Recommender,
-        loss: float,
-        metrics: dict[str, float],
-        user_metrics: dict[str, torch.Tensor],
-    ) -> None:
-        self._save_model(model)
-        self._save_metrics(hparams, loss, metrics)
-        self._save_user_metrics(user_metrics)
-
     def _save_model(self, model: Recommender) -> None:
         local_path = self.local_artifacts_path / "model_weights.pth"
         gcloud_path = self.gcloud_artifacts_path / "model_weights.pth"

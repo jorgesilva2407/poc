@@ -82,7 +82,7 @@ class Trainer:
         artifacts_saver_builder: ArtifactsSaverBuilder,
         device: torch.device,
     ):
-        self._model = model
+        self._model = model.to(device)
         self._train_loader = train_loader
         self._val_loader = val_loader
         self._test_loader = test_loader
@@ -145,7 +145,7 @@ class Trainer:
         ):
             user = user.to(self._device)  # Dim (n,)
             pos_item = pos_item.to(self._device)  # Dim (n,)
-            neg_item = neg_item.to(self._device)  # Dim (n,)
+            neg_item = neg_item.squeeze(-1).to(self._device)  # Dim (n,)
 
             pos_scores = self._model(user, pos_item)  # Dim (n,)
             neg_scores = self._model(user, neg_item)  # Dim (n,)

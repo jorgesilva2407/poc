@@ -6,7 +6,7 @@ from argparse import ArgumentParser
 from torch import Tensor
 from torch.nn import Embedding
 
-from src.models.recommender import Recommender, RecommenderFactory
+from src.models.recommender import Recommender, RecommenderFactory, Context
 
 
 class BiasedSVD(Recommender):
@@ -56,6 +56,6 @@ class BiasedSVDFactory(RecommenderFactory):
         )
         return parser
 
-    def create(self, num_users: int, num_items: int, args: dict) -> Recommender:
+    def create(self, context: Context, args: dict) -> Recommender:
         embedding_dim = args["embedding_dim"]
-        return BiasedSVD(num_users, num_items, embedding_dim)
+        return BiasedSVD(context.num_users, context.num_items, embedding_dim)

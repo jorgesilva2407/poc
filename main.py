@@ -15,7 +15,7 @@ from src.metrics.ndcg_at_k import NDCGAtK
 from src.loggers.logger import LoggerBuilder
 from src.models.recommender import Recommender
 from src.models.biased_svd import BiasedSVDFactory
-from src.models.recommender import RecommenderFactory
+from src.models.recommender import RecommenderFactory, Context
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
 from src.artifacts_saver.artifacts_saver import ArtifactsSaverBuilder
 from src.datasets.precomputed_test_dataset import PrecomputedTestDataset
@@ -24,6 +24,7 @@ from src.datasets.recommendation_dataset import RecommendationDataset, TripletSa
 from src.artifacts_saver.google_cloud_artifact_saver import (
     GoogleCloudArtifactSaverBuilder,
 )
+from src.artifacts_saver.local_artifacts_saver import LocalArtifactsSaverBuilder
 
 
 MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
@@ -36,6 +37,7 @@ LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
 
 ARTIFACT_SAVER_REGISTRY: dict[str, ArtifactsSaverBuilder] = {
     "GoogleCloud": GoogleCloudArtifactSaverBuilder(),
+    "Local": LocalArtifactsSaverBuilder(),
 }
 
 
@@ -383,10 +385,15 @@ def main():
     num_users = all_df["user_id"].nunique()
     num_items = all_df["item_id"].nunique()
 
-    model = model_factory.create(
+    model_context = Context(
         num_users=num_users,
         num_items=num_items,
-        model_params=model_params,
+        interactions_df=train_df,
+    )
+
+    model = model_factory.create(
+        context=model_context,
+        args=model_params,
     )
 
     train_loader, validation_loader, test_loader = build_data_loaders(
