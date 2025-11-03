@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "gcsfs>=2025.9.0",
+    "google-cloud-aiplatform>=1.124.0",
     "google-cloud-storage>=3.4.1",
+    "hypertune>=1.2.1",
     "numpy>=2.3.3",
     "pandas>=2.3.3",
     "tensorboard>=2.20.0",

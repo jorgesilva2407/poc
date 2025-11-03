@@ -38,23 +38,3 @@ class ConfigurableBuilder(ABC, Generic[T]):
         """
         self._cli_args = args
         return self
-
-    def build(self, model_id: str) -> T:
-        """
-        Builds and returns the object using the configured state and runtime parameters.
-
-        Args:
-            model_id (str): An identifier for the model to be built.
-
-        Returns:
-            T: An instance of the built object.
-        """
-        if self._cli_args is None:
-            raise ValueError(
-                "Builder is not configured. Call with_configuration() first."
-            )
-        return self._build(model_id)
-
-    @abstractmethod
-    def _build(self, model_id: str) -> T:
-        raise NotImplementedError("Subclasses must implement the build method.")

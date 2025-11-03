@@ -3,6 +3,7 @@ Trainer module for training, validating, and testing recommender models.
 """
 
 import sys
+from typing import TypedDict
 
 import torch
 from tqdm import tqdm
@@ -14,10 +15,17 @@ from src.losses.pairwise_losses import PairwiseLoss
 from src.metrics.listwise_metrics import ListwiseMetric
 from src.loggers.logger import LoggerBuilder, DatasetType
 from src.datasets.recommendation_dataset import TripletSample
-from src.artifacts_saver.artifacts_saver import (
+from src.artifacts_savers.artifacts_saver import (
     ArtifactsSaver,
     ArtifactsSaverBuilder,
 )
+
+
+class RunResults(TypedDict):
+    best_metric_name: str
+    best_val_metric: float
+    best_epoch: int
+    test_metrics: dict[str, float]
 
 
 class Trainer:
@@ -63,6 +71,7 @@ class Trainer:
 
     _epochs_without_improvement: int = 0
     _best_val_metric: float | None = None
+    _best_epoch: int = 0
 
     def __init__(
         self,
@@ -100,7 +109,7 @@ class Trainer:
         self._logger = logger_builder.build(model_id)
         self._artifacts_saver = artifacts_saver_builder.build(model_id)
 
-    def run(self):
+    def run(self) -> RunResults:
         """
         Run the training, validation, and testing process.
         """
@@ -133,6 +142,13 @@ class Trainer:
             test_metrics,
             test_user_metrics,
         )
+
+        return {
+            "best_metric_name": self._early_stopping_metric,
+            "best_val_metric": self._best_val_metric,
+            "best_epoch": self._best_epoch,
+            "test_metrics": test_metrics,
+        }
 
     def _train_epoch(self, epoch: int) -> float:
         self._model.train()
@@ -168,7 +184,8 @@ class Trainer:
             self._val_loader, description=f"Epoch {epoch} - Validation"
         )
         should_early_stop = self._should_early_stop(
-            val_metrics[self._early_stopping_metric]
+            val_metrics[self._early_stopping_metric],
+            epoch,
         )
         return val_loss, val_metrics, should_early_stop
 
@@ -223,9 +240,10 @@ class Trainer:
         }
         return avg_loss, avg_metrics, user_metrics
 
-    def _should_early_stop(self, current_metric: float) -> bool:
+    def _should_early_stop(self, current_metric: float, epoch: int) -> bool:
         if self._best_val_metric is None:
             self._best_val_metric = current_metric
+            self._best_epoch = epoch
             return False
 
         improved = (
@@ -237,6 +255,7 @@ class Trainer:
         if improved:
             self._best_val_metric = current_metric
             self._epochs_without_improvement = 0
+            self._best_epoch = epoch
         else:
             self._epochs_without_improvement += 1
 

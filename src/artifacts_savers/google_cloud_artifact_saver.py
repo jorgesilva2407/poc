@@ -9,7 +9,7 @@ import torch
 from google.cloud import storage
 
 from src.models.recommender import Recommender
-from src.artifacts_saver.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
+from src.artifacts_savers.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
 
 
 class GoogleCloudArtifactSaver(ArtifactsSaver):

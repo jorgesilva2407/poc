@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 
 from src.models.recommender import Recommender
-from src.artifacts_saver.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
+from src.artifacts_savers.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
 
 
 class LocalArtifactsSaver(ArtifactsSaver):

@@ -50,3 +50,31 @@ class ArtifactsSaverBuilder(ConfigurableBuilder[ArtifactsSaver], ABC):
     """
     Abstract base class for building ArtifactsSaver instances.
     """
+
+    def build(self, model_id: str) -> ArtifactsSaver:
+        """
+        Builds and returns the object using the configured state and runtime parameters.
+
+        Args:
+            model_id (str): An identifier for the model to be built.
+
+        Returns:
+            ArtifactsSaver: An instance of the built object.
+        """
+        if self._cli_args is None:
+            raise ValueError(
+                "Builder is not configured. Call with_configuration() first."
+            )
+        return self._build(model_id)
+
+    @abstractmethod
+    def _build(self, model_id: str) -> ArtifactsSaver:
+        """
+        Internal method to build the ArtifactsSaver instance.
+
+        Args:
+            model_id (str): An identifier for the model to be built.
+
+        Returns:
+            ArtifactsSaver: An instance of the built object.
+        """

@@ -18,14 +18,19 @@ from src.models.recommender import Recommender
 from src.models.biased_svd import BiasedSVDFactory
 from src.models.recommender import RecommenderFactory, Context
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
-from src.artifacts_saver.artifacts_saver import ArtifactsSaverBuilder
+from src.artifacts_savers.artifacts_saver import ArtifactsSaverBuilder
 from src.datasets.precomputed_test_dataset import PrecomputedTestDataset
 from src.datasets.negative_sampling_dataset import NegativeSamplingDataset
+from src.experiment_trackers.experiment_tracker import ExperimentTrackerBuilder
+from src.artifacts_savers.local_artifacts_saver import LocalArtifactsSaverBuilder
 from src.datasets.recommendation_dataset import RecommendationDataset, TripletSample
-from src.artifacts_saver.google_cloud_artifact_saver import (
+from src.experiment_trackers.noop_experiment_tracker import NoOpExperimentTrackerBuilder
+from src.artifacts_savers.google_cloud_artifact_saver import (
     GoogleCloudArtifactSaverBuilder,
 )
-from src.artifacts_saver.local_artifacts_saver import LocalArtifactsSaverBuilder
+from src.experiment_trackers.vertex_ai_experiment_tracker import (
+    VertexAIExperimentTrackerBuilder,
+)
 
 
 MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
@@ -39,6 +44,11 @@ LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
 ARTIFACT_SAVER_REGISTRY: dict[str, ArtifactsSaverBuilder] = {
     "GoogleCloud": GoogleCloudArtifactSaverBuilder(),
     "Local": LocalArtifactsSaverBuilder(),
+}
+
+EXPERIMENT_TRACKER_BUILDER_REGISTRY: dict[str, ExperimentTrackerBuilder] = {
+    "NoOp": NoOpExperimentTrackerBuilder(),
+    "VertexAI": VertexAIExperimentTrackerBuilder(),
 }
 
 
@@ -99,6 +109,25 @@ def parse_artifacts_saver_args(
         artifacts_saver_name
     ].with_configuration(vars(artifacts_saver_args))
     return artifacts_saver_builder, remaining_args
+
+
+def parse_experiment_tracker_args(
+    experiment_tracker_name: str, args: list[str]
+) -> tuple[ExperimentTrackerBuilder, list[str]]:
+    """
+    Parse experiment tracker arguments from the command line.
+
+    Args:
+        remaining_args (list[str]): List of remaining command line arguments.
+    Returns:
+        Tuple containing an ExperimentTrackerBuilder instance and the remaining arguments.
+    """
+    parser = EXPERIMENT_TRACKER_BUILDER_REGISTRY[experiment_tracker_name].argparser
+    experiment_tracker_args, remaining_args = parser.parse_known_args(args)
+    experiment_tracker_builder = EXPERIMENT_TRACKER_BUILDER_REGISTRY[
+        experiment_tracker_name
+    ].with_configuration(vars(experiment_tracker_args))
+    return experiment_tracker_builder, remaining_args
 
 
 def parse_optimizer_args(remaining_args: list[str]) -> tuple[dict, list[str]]:
@@ -179,9 +208,15 @@ def parse_dataloader_args(remaining_args: list[str]) -> tuple[dict, list[str]]:
     return vars(dataloader_args), remaining_args
 
 
-def parse_args() -> (
-    tuple[RecommenderFactory, dict, LoggerBuilder, ArtifactsSaverBuilder, dict, dict]
-):
+def parse_args() -> tuple[
+    RecommenderFactory,
+    dict,
+    LoggerBuilder,
+    ArtifactsSaverBuilder,
+    ExperimentTrackerBuilder,
+    dict,
+    dict,
+]:
     """
     Parse command line arguments.
 
@@ -211,10 +246,18 @@ def parse_args() -> (
         help="Name of the artifacts saver to use.",
         choices=ARTIFACT_SAVER_REGISTRY.keys(),
     )
+    parser.add_argument(
+        "--experiment-tracker",
+        type=str,
+        default="NoOp",
+        help="Name of the experiment tracker to use.",
+        choices=EXPERIMENT_TRACKER_BUILDER_REGISTRY.keys(),
+    )
     known_args, remaining_args = parser.parse_known_args()
     model_name = known_args.model
     logger_name = known_args.logger
     artifacts_saver_name = known_args.artifacts_saver
+    experiment_tracker_name = known_args.experiment_tracker
 
     model_factory, model_params, remaining_args = parse_model_args(
         model_name, remaining_args
@@ -222,6 +265,9 @@ def parse_args() -> (
     logger_builder, remaining_args = parse_logger_args(logger_name, remaining_args)
     artifacts_saver_builder, remaining_args = parse_artifacts_saver_args(
         artifacts_saver_name, remaining_args
+    )
+    experiment_tracker_builder, remaining_args = parse_experiment_tracker_args(
+        experiment_tracker_name, remaining_args
     )
     optimizer_params, remaining_args = parse_optimizer_args(remaining_args)
     dataloader_params, remaining_args = parse_dataloader_args(remaining_args)
@@ -233,6 +279,7 @@ def parse_args() -> (
         model_params,
         logger_builder,
         artifacts_saver_builder,
+        experiment_tracker_builder,
         optimizer_params,
         dataloader_params,
     )
@@ -377,6 +424,7 @@ def main():
         model_params,
         logger_builder,
         artifacts_saver_builder,
+        experiment_tracker_builder,
         optimizer_params,
         dataloader_params,
     ) = parse_args()
@@ -396,6 +444,10 @@ def main():
         context=model_context,
         args=model_params,
     )
+
+    experiment_tracker = experiment_tracker_builder.build()
+    all_hparams = {**model_params, **optimizer_params, **dataloader_params}
+    experiment_tracker.log_params(all_hparams)
 
     train_loader, validation_loader, test_loader = build_data_loaders(
         all_df=all_df,
@@ -437,7 +489,14 @@ def main():
         device=device,
     )
 
-    trainer.run()
+    run_results = trainer.run()
+
+    experiment_tracker.log_metrics(run_results["test_metrics"])
+    experiment_tracker.report_hpo_metric(
+        metric_name=run_results["best_metric_name"],
+        metric_value=run_results["best_val_metric"],
+        global_step=run_results["best_epoch"],
+    )
 
 
 if __name__ == "__main__":

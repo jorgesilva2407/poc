@@ -19,4 +19,6 @@ class BPRLoss(PairwiseLoss):
     def forward(
         self, pos_scores: torch.Tensor, neg_scores: torch.Tensor
     ) -> torch.Tensor:
+        # pylint: disable=not-callable
         return -torch.mean(F.logsigmoid(pos_scores - neg_scores))
+        # pylint: enable=not-callable
