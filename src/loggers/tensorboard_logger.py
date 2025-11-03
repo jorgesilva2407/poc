@@ -39,11 +39,19 @@ class TensorBoardLoggerBuilder(LoggerBuilder):
     @property
     def argparser(self):
         parser = super().argparser
+
+        kwargs = dict()
+        default_log_dir = ENVIRONMENT.get(ENVIRONMENT.VARIABLES.TENSORBOARD_LOG_DIR)
+        if default_log_dir is not None:
+            kwargs["default"] = default_log_dir
+        else:
+            kwargs["required"] = True
+
         parser.add_argument(
             "--tensorboard-log-dir",
             type=str,
-            default=ENVIRONMENT.get(ENVIRONMENT.VARIABLES.TENSORBOARD_LOG_DIR),
             help="Directory to store TensorBoard logs.",
+            **kwargs,
         )
         return parser
 

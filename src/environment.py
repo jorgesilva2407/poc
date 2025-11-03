@@ -10,7 +10,7 @@ class ENVIRONMENT:
     class VARIABLES(StrEnum):
         """Enumeration of environment variable names."""
 
-        TENSORBOARD_LOG_DIR = "TENSORBOARD_LOG_DIR"
+        TENSORBOARD_LOG_DIR = "AIP_TENSORBOARD_LOG_DIR"
 
     @staticmethod
     def get(var_name: "ENVIRONMENT") -> any:

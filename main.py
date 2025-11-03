@@ -2,6 +2,7 @@
 Module responsible for calling the training and evaluation of the models implemented in the package.
 """
 
+import sys
 from argparse import ArgumentParser
 
 import torch
@@ -225,7 +226,7 @@ def parse_args() -> (
     optimizer_params, remaining_args = parse_optimizer_args(remaining_args)
     dataloader_params, remaining_args = parse_dataloader_args(remaining_args)
 
-    print("Ignored arguments:", remaining_args)
+    print("Ignored arguments:", remaining_args, file=sys.stderr)
 
     return (
         model_factory,
@@ -411,6 +412,8 @@ def main():
         if torch.cuda.is_available()
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
+
+    print("Using device:", device, file=sys.stderr)
 
     trainer = Trainer(
         model=model,

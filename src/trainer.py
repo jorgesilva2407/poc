@@ -141,7 +141,7 @@ class Trainer:
         total_samples = 0
 
         for user, pos_item, neg_item in tqdm(
-            self._train_loader, desc=f"Epoch {epoch} - Training"
+            self._train_loader, desc=f"Epoch {epoch} - Training", file=sys.stderr
         ):
             user = user.to(self._device)  # Dim (n,)
             pos_item = pos_item.to(self._device)  # Dim (n,)
@@ -187,7 +187,9 @@ class Trainer:
         }
         total_samples = 0
 
-        for user, pos_item, neg_items in tqdm(data_loader, desc=description):
+        for user, pos_item, neg_items in tqdm(
+            data_loader, desc=description, file=sys.stderr
+        ):
             user = user.to(self._device)  # Dim (n,)
             pos_item = pos_item.to(self._device)  # Dim (n,)
             neg_items = neg_items.to(self._device)  # Dim (n, m)
