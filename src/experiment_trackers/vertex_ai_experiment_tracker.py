@@ -65,12 +65,6 @@ class VertexAIExperimentTrackerBuilder(ExperimentTrackerBuilder):
             required=True,
             help="Name of the Vertex AI Experiment.",
         )
-        argparser.add_argument(
-            "--vertex-tensorboard-id",
-            type=str,
-            required=False,
-            help="Full Vertex AI TensorBoard resource name (e.g., projects/.../tensorboards/...).",
-        )
         return argparser
 
     def _build(self) -> ExperimentTracker:
@@ -86,7 +80,6 @@ class VertexAIExperimentTrackerBuilder(ExperimentTrackerBuilder):
             project=self._cli_args["vertex_project-id"],
             location=self._cli_args["vertex-location"],
             experiment=self._cli_args["vertex-experiment-name"],
-            experiment_tensorboard=self._cli_args.get("vertex_tensorboard-id"),
         )
 
         # Start the run using the provided run_name

@@ -202,7 +202,7 @@ def parse_dataloader_args(remaining_args: list[str]) -> tuple[dict, list[str]]:
         "--test-interactions-csv",
         type=str,
         required=True,
-        help="Path to the CSV file containing test interactions.",
+        help="Path to the CSV file containing test interactions and NEGATIVE SAMPLING.",
     )
     dataloader_args, remaining_args = parser.parse_known_args(remaining_args)
     return vars(dataloader_args), remaining_args

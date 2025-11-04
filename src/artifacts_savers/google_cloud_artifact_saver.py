@@ -78,7 +78,7 @@ class GoogleCloudArtifactSaverBuilder(ArtifactsSaverBuilder):
             "--gcs-blob-base-path",
             type=str,
             required=True,
-            help="Base path in the GCS bucket for saving artifacts.",
+            help="Base path in the GCS bucket for saving artifacts. (e.g., 'artifacts/models')",
         )
         parser.add_argument(
             "--temp-local-path",
@@ -98,3 +98,13 @@ class GoogleCloudArtifactSaverBuilder(ArtifactsSaverBuilder):
             gcloud_artifacts_path=Path(gcp_blob_base_path) / model_id,
             local_artifacts_path=Path(temp_local_path) / model_id,
         )
+
+
+def main() -> None:
+    """Main function to build the GoogleCloudArtifactSaver from CLI arguments."""
+    builder = GoogleCloudArtifactSaverBuilder()
+    builder.argparser.parse_args()
+
+
+if __name__ == "__main__":
+    main()
