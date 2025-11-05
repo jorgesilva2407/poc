@@ -11,7 +11,7 @@ class ENVIRONMENT:
         """Enumeration of environment variable names."""
 
         TENSORBOARD_LOG_DIR = "AIP_TENSORBOARD_LOG_DIR"
-        RUN_NAME = "AIP_EXPERIMENT_RUN"
+        TRIAL_ID = "AIP_TRIAL_ID"
 
     @staticmethod
     def get(var_name: "ENVIRONMENT") -> any:

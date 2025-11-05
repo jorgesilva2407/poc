@@ -42,7 +42,7 @@ class VertexAIExperimentTrackerBuilder(ExperimentTrackerBuilder):
     Builds and initializes the VertexAIExperimentTracker.
     """
 
-    RUN_NAME = ENVIRONMENT.get(ENVIRONMENT.VARIABLES.RUN_NAME)
+    trial_id: str = ""
 
     @property
     def argparser(self):
@@ -72,8 +72,9 @@ class VertexAIExperimentTrackerBuilder(ExperimentTrackerBuilder):
         Initializes the Vertex AI Experiment and starts a new run.
         'run_name' is passed in from main.py (e.g., from an env var).
         """
+        self.trial_id = ENVIRONMENT.get(ENVIRONMENT.VARIABLES.TRIAL_ID)
         print(
-            f"Initializing Vertex AI Experiment: {self._cli_args['vertex_experiment_name']}/{self.RUN_NAME}"
+            f"Initializing Vertex AI Experiment: {self._cli_args['vertex_experiment_name']}/{self.trial_id}"
         )
 
         aiplatform.init(
@@ -83,6 +84,6 @@ class VertexAIExperimentTrackerBuilder(ExperimentTrackerBuilder):
         )
 
         # Start the run using the provided run_name
-        aiplatform.start_run(run=self.RUN_NAME)
+        aiplatform.start_run(run=self.trial_id)
 
         return VertexAIExperimentTracker()

@@ -16,7 +16,7 @@ ParamSpecType = (
 )
 
 
-class HPOJob:
+class VertexAIHPOJob:
     """Hyperparameter Optimization Job for Google Cloud AI Platform."""
 
     class Environment(StrEnum):
@@ -167,7 +167,7 @@ class HPOJob:
 
 def main():
     """Example usage of HPOJob."""
-    hpo_job = HPOJob(
+    hpo_job = VertexAIHPOJob(
         model_name="ExampleModel",
         all_interactions_csv_path="gs://your-bucket/path/to/all_interactions.csv",
         train_interactions_csv_path="gs://your-bucket/path/to/train_interactions.csv",
@@ -175,7 +175,7 @@ def main():
         test_interactions_csv_path="gs://your-bucket/path/to/test_interactions.csv",
     )
 
-    parameter_spec = HPOJob.DEFAULT_PARAM_SPEC
+    parameter_spec = VertexAIHPOJob.DEFAULT_PARAM_SPEC
 
     hpo_job.run(parameter_spec=parameter_spec)
 
