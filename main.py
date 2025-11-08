@@ -28,6 +28,9 @@ from src.experiment_trackers.noop_experiment_tracker import NoOpExperimentTracke
 from src.artifacts_savers.google_cloud_artifact_saver import (
     GoogleCloudArtifactSaverBuilder,
 )
+from src.experiment_trackers.optuna_experiment_tracker import (
+    OptunaExperimentTrackerBuilder,
+)
 from src.experiment_trackers.vertex_ai_experiment_tracker import (
     VertexAIExperimentTrackerBuilder,
 )
@@ -49,6 +52,7 @@ ARTIFACT_SAVER_REGISTRY: dict[str, ArtifactsSaverBuilder] = {
 EXPERIMENT_TRACKER_BUILDER_REGISTRY: dict[str, ExperimentTrackerBuilder] = {
     "NoOp": NoOpExperimentTrackerBuilder(),
     "VertexAI": VertexAIExperimentTrackerBuilder(),
+    "Optuna": OptunaExperimentTrackerBuilder(),
 }
 
 
