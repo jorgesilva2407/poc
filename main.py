@@ -3,9 +3,11 @@ Module responsible for calling the training and evaluation of the models impleme
 """
 
 import sys
+import random
 from argparse import ArgumentParser
 
 import torch
+import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -35,6 +37,7 @@ from src.experiment_trackers.vertex_ai_experiment_tracker import (
     VertexAIExperimentTrackerBuilder,
 )
 
+SEED = 42
 
 MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
     "BiasedSVD": BiasedSVDFactory(),
@@ -54,6 +57,25 @@ EXPERIMENT_TRACKER_BUILDER_REGISTRY: dict[str, ExperimentTrackerBuilder] = {
     "VertexAI": VertexAIExperimentTrackerBuilder(),
     "Optuna": OptunaExperimentTrackerBuilder(),
 }
+
+
+def set_seed():
+    """
+    Set random seed for reproducibility across all libraries.
+
+    Args:
+        seed (int): Random seed value.
+    """
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.cuda.manual_seed_all(SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # For MPS (Apple Silicon)
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(SEED)
 
 
 def parse_model_args(
@@ -307,6 +329,7 @@ def load_dataframes(
         dataloader_params["validation_interactions_csv"]
     ).sample(
         frac=dataloader_params["validation_subset_ratio"],
+        random_state=SEED,
     )
     test_df = pd.read_csv(dataloader_params["test_interactions_csv"])
     return all_df, train_df, validation_df, test_df
@@ -398,22 +421,36 @@ def build_data_loaders(
         test_df=test_df,
     )
 
+    def seed_worker(worker_id):
+        worker_seed = SEED + worker_id
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
+    g = torch.Generator()
+    g.manual_seed(SEED)
+
     train_loader = DataLoader(
         dataset=train_dataset,
         batch_size=batch_size,
         shuffle=True,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     validation_loader = DataLoader(
         dataset=validation_dataset,
         batch_size=batch_size,
         shuffle=False,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     test_loader = DataLoader(
         dataset=test_dataset,
         batch_size=batch_size,
         shuffle=False,
+        worker_init_fn=seed_worker,
+        generator=g,
     )
 
     return train_loader, validation_loader, test_loader
@@ -423,6 +460,8 @@ def main():
     """
     Main function to parse arguments and print them.
     """
+    set_seed()
+
     (
         model_factory,
         model_params,
