@@ -268,7 +268,7 @@ def parse_args() -> tuple[
     parser.add_argument(
         "--artifacts-saver",
         type=str,
-        default="GoogleCloud",
+        required=True,
         help="Name of the artifacts saver to use.",
         choices=ARTIFACT_SAVER_REGISTRY.keys(),
     )
