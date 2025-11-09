@@ -28,7 +28,7 @@ class BiasedSVD(Recommender):
             "emb_dim": self.embedding_dim,
         }
 
-    def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
+    def _forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
         user_embeds = self.user_embedding(user_ids)
         item_embeds = self.item_embedding(item_ids)
         user_b = self.user_bias(user_ids).squeeze()
