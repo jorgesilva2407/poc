@@ -2,7 +2,7 @@
 Trainer module for training, validating, and testing recommender models.
 """
 
-import sys
+import os
 from typing import TypedDict
 
 import torch
@@ -22,6 +22,8 @@ from src.artifacts_savers.artifacts_saver import (
 
 
 class RunResults(TypedDict):
+    """Results of a training run."""
+
     best_metric_name: str
     best_val_metric: float
     best_epoch: int
@@ -72,6 +74,7 @@ class Trainer:
     _epochs_without_improvement: int = 0
     _best_val_metric: float | None = None
     _best_epoch: int = 0
+    _checkpoint_path: str = "/tmp/best_model_checkpoint.pt"
 
     def __init__(
         self,
@@ -126,9 +129,12 @@ class Trainer:
                     f"Early stopping triggered at epoch {epoch}. "
                     + f"No improvement in {self._early_stopping_patience} consecutive "
                     + "full validations.",
-                    file=sys.stderr,
                 )
                 break
+
+        # Load the best model state before testing
+        self._load_checkpoint(self._checkpoint_path)
+        print(f"Loaded best model from epoch {self._best_epoch}")
 
         test_loss, test_metrics, test_user_metrics = self._test()
 
@@ -157,7 +163,7 @@ class Trainer:
         total_samples = 0
 
         for user, pos_item, neg_item in tqdm(
-            self._train_loader, desc=f"Epoch {epoch} - Training", file=sys.stderr
+            self._train_loader, desc=f"Epoch {epoch} - Training"
         ):
             user = user.to(self._device)  # Dim (n,)
             pos_item = pos_item.to(self._device)  # Dim (n,)
@@ -204,9 +210,7 @@ class Trainer:
         }
         total_samples = 0
 
-        for user, pos_item, neg_items in tqdm(
-            data_loader, desc=description, file=sys.stderr
-        ):
+        for user, pos_item, neg_items in tqdm(data_loader, desc=description):
             user = user.to(self._device)  # Dim (n,)
             pos_item = pos_item.to(self._device)  # Dim (n,)
             neg_items = neg_items.to(self._device)  # Dim (n, m)
@@ -244,6 +248,7 @@ class Trainer:
         if self._best_val_metric is None:
             self._best_val_metric = current_metric
             self._best_epoch = epoch
+            self._save_checkpoint(self._checkpoint_path)
             return False
 
         improved = (
@@ -256,6 +261,7 @@ class Trainer:
             self._best_val_metric = current_metric
             self._epochs_without_improvement = 0
             self._best_epoch = epoch
+            self._save_checkpoint(self._checkpoint_path)
         else:
             self._epochs_without_improvement += 1
 
@@ -276,3 +282,14 @@ class Trainer:
         hparams = self._get_hparams()
         hparams_str = "_".join([f"{key}-{value}" for key, value in hparams.items()])
         return f"{self._model.name}-{hparams_str}"
+
+    def _save_checkpoint(self, path: str) -> None:
+        """Save current model weights to a temporary file (minimal version)."""
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(self._model.state_dict(), path)
+
+    def _load_checkpoint(self, path: str) -> None:
+        """Load model weights from a temporary file if it exists."""
+        if os.path.exists(path):
+            state_dict = torch.load(path, map_location=self._device)
+            self._model.load_state_dict(state_dict)
