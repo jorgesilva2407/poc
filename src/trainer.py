@@ -55,6 +55,8 @@ class Trainer:
         device (torch.device): Device to run the training on.
     """
 
+    WARMUP_EPOCHS = 10
+
     _model: Recommender
     _train_loader: DataLoader[TripletSample]
     _val_loader: DataLoader[TripletSample]
@@ -120,6 +122,13 @@ class Trainer:
             train_loss = self._train_epoch(epoch)
             val_loss, val_metrics, should_early_stop = self._validate_epoch(epoch)
 
+            print(
+                f"Epoch {epoch}: Train Loss = {train_loss:.4f}, "
+                + f"Val Loss = {val_loss:.4f}, "
+                + ", ".join(
+                    [f"Val {name} = {value:.4f}" for name, value in val_metrics.items()]
+                ),
+            )
             self._logger.loss(self._loss.name, train_loss, epoch, DatasetType.TRAIN)
             self._logger.loss(self._loss.name, val_loss, epoch, DatasetType.VALIDATION)
             self._logger.metrics(val_metrics, epoch, DatasetType.VALIDATION)
@@ -263,6 +272,8 @@ class Trainer:
             self._best_epoch = epoch
             self._save_checkpoint(self._checkpoint_path)
         else:
+            if epoch <= self.WARMUP_EPOCHS:
+                return False
             self._epochs_without_improvement += 1
 
         return self._epochs_without_improvement >= self._early_stopping_patience
