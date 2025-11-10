@@ -16,7 +16,7 @@ class NoOpExperimentTracker(ExperimentTracker):
     def log_params(self, params: dict):
         print(f"Local-only (params): {params}", file=sys.stderr)
 
-    def log_metrics(self, metrics: dict):
+    def log_test_metrics(self, metrics: dict):
         print(f"Local-only (metrics): {metrics}", file=sys.stderr)
 
     def report_hpo_metric(self, metric_name: str, metric_value: float, step: int):

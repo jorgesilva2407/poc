@@ -14,7 +14,7 @@ class ExperimentTracker(ABC):
         """Logs a dictionary of hyperparameters."""
 
     @abstractmethod
-    def log_metrics(self, metrics: dict):
+    def log_test_metrics(self, metrics: dict):
         """Logs a dictionary of final (summary) metrics."""
 
     @abstractmethod

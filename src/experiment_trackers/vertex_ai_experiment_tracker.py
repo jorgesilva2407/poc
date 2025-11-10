@@ -19,7 +19,7 @@ class VertexAIExperimentTracker(ExperimentTracker):
     def log_params(self, params: dict):
         aiplatform.log_params(params)
 
-    def log_metrics(self, metrics: dict):
+    def log_test_metrics(self, metrics: dict):
         aiplatform.log_metrics(metrics)
 
     def report_hpo_metric(self, metric_name: str, metric_value: float, step: int):

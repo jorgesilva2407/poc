@@ -21,20 +21,13 @@ class OptunaExperimentTracker(ExperimentTracker):
     def log_params(self, params: dict):
         pass
 
-    def log_metrics(self, metrics: dict):
-        pass
+    def log_test_metrics(self, metrics: dict):
+        os.makedirs(os.path.dirname(self.metric_file), exist_ok=True)
+        with open(self.metric_file, "w", encoding="utf-8") as f:
+            json.dump(metrics, f)
 
     def report_hpo_metric(self, metric_name: str, metric_value: float, step: int):
-        """
-        Writes to a temporary file that will be read in the optuna optimization job.
-        """
-        os.makedirs(os.path.dirname(self.metric_file), exist_ok=True)
-        metric_record = {
-            "metric": metric_name,
-            "value": metric_value,
-        }
-        with open(self.metric_file, "w", encoding="utf-8") as f:
-            json.dump(metric_record, f)
+        pass
 
 
 class OptunaExperimentTrackerBuilder(ExperimentTrackerBuilder):

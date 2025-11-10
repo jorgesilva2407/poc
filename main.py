@@ -534,7 +534,7 @@ def main():
 
     run_results = trainer.run()
 
-    experiment_tracker.log_metrics(run_results["test_metrics"])
+    experiment_tracker.log_test_metrics(run_results["test_metrics"])
     experiment_tracker.report_hpo_metric(
         metric_name=run_results["best_metric_name"],
         metric_value=run_results["best_val_metric"],
