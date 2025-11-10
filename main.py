@@ -538,7 +538,7 @@ def main():
     experiment_tracker.report_hpo_metric(
         metric_name=run_results["best_metric_name"],
         metric_value=run_results["best_val_metric"],
-        global_step=run_results["best_epoch"],
+        step=run_results["best_epoch"],
     )
 
 
