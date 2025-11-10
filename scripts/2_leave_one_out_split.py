@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 from argparse import ArgumentParser
 
@@ -6,25 +7,21 @@ from argparse import ArgumentParser
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument(
-        "-i",
-        "--input_file",
+        "-d",
+        "--data-dir",
         type=str,
-        default="data/processed/amazon-2014/all_interactions.csv",
-        help="Path to the input interactions CSV file",
-    )
-    parser.add_argument(
-        "-o",
-        "--output_dir",
-        type=str,
-        default="data/processed/amazon-2014/split/",
-        help="Directory to save the output split CSV files",
+        required=True,
+        help="Path to the data directory",
     )
     parsed_args = parser.parse_args()
-    return parsed_args.input_file, parsed_args.output_dir
+    return parsed_args.data_dir
 
 
 def main() -> None:
-    input_file, output_dir = parse_args()
+    data_dir = parse_args()
+    data_dir_path = Path(data_dir)
+    input_file = data_dir_path / "all_interactions.csv"
+    output_dir = data_dir_path / "split"
 
     df = pd.read_csv(input_file)
     df = df.sort_values(["user_id", "timestamp"]).reset_index(drop=True)
@@ -45,9 +42,9 @@ def main() -> None:
     test.drop(columns=["timestamp"], inplace=True)
 
     os.makedirs(output_dir, exist_ok=True)
-    train.to_csv(os.path.join(output_dir, "train.csv"), index=False)
-    val.to_csv(os.path.join(output_dir, "val.csv"), index=False)
-    test.to_csv(os.path.join(output_dir, "test.csv"), index=False)
+    train.to_csv(output_dir / "train.csv", index=False)
+    val.to_csv(output_dir / "val.csv", index=False)
+    test.to_csv(output_dir / "test.csv", index=False)
 
 
 if __name__ == "__main__":

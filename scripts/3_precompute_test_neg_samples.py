@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from pathlib import Path
 from argparse import ArgumentParser
 from src.datasets.negative_sampling_dataset import NegativeSamplingDataset
 
@@ -9,25 +10,11 @@ from src.datasets.negative_sampling_dataset import NegativeSamplingDataset
 def parse_args():
     parser = ArgumentParser(description="Precompute Test Negative Samples")
     parser.add_argument(
-        "-s",
-        "--split-data-dir",
+        "-d",
+        "--data-dir",
         type=str,
-        default="data/processed/amazon-2014/split/",
-        help="Path to the split data directory",
-    )
-    parser.add_argument(
-        "-a",
-        "--all-data-path",
-        type=str,
-        default="data/processed/amazon-2014/all_interactions.csv",
-        help="Path to the all interactions CSV file",
-    )
-    parser.add_argument(
-        "-o",
-        "--output-path",
-        type=str,
-        default="data/processed/amazon-2014/split/test_neg_samples.csv",
-        help="Path to save the precomputed test negative samples",
+        required=True,
+        help="Path to the data directory",
     )
     parser.add_argument(
         "-n",
@@ -45,9 +32,7 @@ def parse_args():
     )
     parsed_args = parser.parse_args()
     return (
-        parsed_args.split_data_dir,
-        parsed_args.all_data_path,
-        parsed_args.output_path,
+        parsed_args.data_dir,
         parsed_args.num_negatives,
         parsed_args.random_seed,
     )
@@ -55,12 +40,15 @@ def parse_args():
 
 def main():
     (
-        split_data_dir,
-        all_data_path,
-        output_path,
+        data_dir,
         num_negatives,
         random_seed,
     ) = parse_args()
+
+    data_path = Path(data_dir)
+    split_data_dir = data_path / "split"
+    all_data_path = data_path / "all_interactions.csv"
+    output_path = split_data_dir / "test_neg_samples.csv"
 
     test_data_path = os.path.join(split_data_dir, "test.csv")
     test_interactions = pd.read_csv(test_data_path)
@@ -89,7 +77,7 @@ def main():
 
     neg_samples_df = pd.DataFrame(rows, columns=columns)
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(output_path.parent, exist_ok=True)
     neg_samples_df.to_csv(output_path, index=False)
 
 
