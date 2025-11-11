@@ -22,73 +22,22 @@ def parse_args():
         required=True,
         help="Directory to save the processed files",
     )
-    parser.add_argument(
-        "-k",
-        "--k-core",
-        type=int,
-        default=5,
-        help="Core value for iterative filtering (e.g., 5 for 5-core).",
-    )
     parsed_args = parser.parse_args()
-    return parsed_args.input_file, parsed_args.output_dir, parsed_args.k_core
+    return parsed_args.input_file, parsed_args.output_dir
 
 
-def filter_k_core(df: pd.DataFrame, k: int) -> pd.DataFrame:
-    """
-    Iteratively filter df until all users and items have k interactions.
-
-    Args:
-        df: The interactions dataframe.
-        k: The minimum number of interactions for users and items.
-    """
-    print(f"Applying {k}-core filter...")
-    while True:
-        initial_interactions = len(df)
-
-        # 1. Filter users
-        user_counts = df["user_id"].value_counts()
-        valid_users = user_counts[user_counts >= k].index
-        df = df[df["user_id"].isin(valid_users)]
-
-        # 2. Filter items
-        item_counts = df["item_id"].value_counts()
-        valid_items = item_counts[item_counts >= k].index
-        df = df[df["item_id"].isin(valid_items)]
-
-        final_interactions = len(df)
-
-        if initial_interactions == final_interactions:
-            # No interactions were removed in this pass, so we are done
-            print("k-core filter applied.")
-            break
-        else:
-            print(
-                f"  - Iteration removed {initial_interactions - final_interactions} interactions..."
-            )
-
-    return df
-
-
-def process_dataset(jsonl_file: str, output_dir: str, k_core: int = 5):
+def process_dataset(jsonl_file: str, output_dir: str):
     """
     Process a single dataset: read, filter, index, and save.
 
     Args:
         jsonl_file: Path to the input JSONL file
         output_dir: Directory where processed files will be saved
-        k_core: The core value for iterative filtering.
     """
     # Read ratings
     df = pd.read_json(jsonl_file, lines=True)
-    df = df[["reviewerID", "asin", "overall", "unixReviewTime"]]
-    df.columns = ["user_id", "item_id", "rating", "timestamp"]
-
-    # Convert to implicit
-    df = df[df["rating"] >= 4]
-    df.drop(columns=["rating"], inplace=True)
-
-    # Apply iterative k-core filter
-    df = filter_k_core(df, k=k_core)
+    df = df[["reviewerID", "asin", "unixReviewTime"]]
+    df.columns = ["user_id", "item_id", "timestamp"]
 
     # Index columns (after filtering)
     user_encoder = LabelEncoder()
@@ -116,12 +65,11 @@ def process_dataset(jsonl_file: str, output_dir: str, k_core: int = 5):
 
 
 def main() -> None:
-    input_file, output_dir, k_core = parse_args()
+    input_file, output_dir = parse_args()
 
     process_dataset(
         jsonl_file=input_file,
         output_dir=output_dir,
-        k_core=k_core,
     )
 
 

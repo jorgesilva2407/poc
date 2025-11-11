@@ -41,6 +41,10 @@ def main() -> None:
     val.drop(columns=["timestamp"], inplace=True)
     test.drop(columns=["timestamp"], inplace=True)
 
+    print(f"Train interactions: {len(train)}")
+    print(f"Validation interactions: {len(val)}")
+    print(f"Test interactions: {len(test)}")
+
     os.makedirs(output_dir, exist_ok=True)
     train.to_csv(output_dir / "train.csv", index=False)
     val.to_csv(output_dir / "val.csv", index=False)
