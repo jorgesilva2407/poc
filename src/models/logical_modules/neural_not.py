@@ -3,8 +3,10 @@
 import torch
 import torch.nn as nn
 
+from src.models.logical_modules.interfaces import LogicalNOT
 
-class NeuralNOT(nn.Module):
+
+class NeuralNOT(LogicalNOT):
     """Neural NOT logical module."""
 
     def __init__(self, event_embedding_dim: int, hidden_dim: int):
@@ -15,7 +17,7 @@ class NeuralNOT(nn.Module):
             nn.Linear(hidden_dim, event_embedding_dim),
         )
 
-    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """Forward pass for the Neural NOT module."""
-        output = self.not_network(inputs)
+        output = self.not_network(input_tensor)
         return output
