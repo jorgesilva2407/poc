@@ -179,9 +179,18 @@ class Trainer:
             neg_item = neg_item.squeeze(-1).to(self._device)  # Dim (n,)
 
             pos_scores = self._model(user, pos_item)  # Dim (n,)
-            neg_scores = self._model(user, neg_item)  # Dim (n,)
+            pos_reg_loss = self._model.compute_regularization_loss().to(
+                self._device
+            )  # Dim (1,)
 
-            loss_value = self._loss(pos_scores, neg_scores)  # Dim (1,)
+            neg_scores = self._model(user, neg_item)  # Dim (n,)
+            neg_reg_loss = self._model.compute_regularization_loss().to(
+                self._device
+            )  # Dim (1,)
+
+            main_loss = self._loss(pos_scores, neg_scores)  # Dim (1,)
+            loss_value = main_loss + pos_reg_loss + neg_reg_loss  # Dim (1,)
+
             batch_size = user.size(0)
 
             self._optimizer.zero_grad()

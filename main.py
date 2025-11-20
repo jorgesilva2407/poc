@@ -18,6 +18,7 @@ from src.metrics.ndcg_at_k import NDCGAtK
 from src.loggers.logger import LoggerBuilder
 from src.models.recommender import Recommender
 from src.models.biased_svd import BiasedSVDFactory
+from src.models.gcr import GCRFactory
 from src.models.recommender import RecommenderFactory, Context
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
 from src.artifacts_savers.artifacts_saver import ArtifactsSaverBuilder
@@ -41,6 +42,7 @@ SEED = 42
 
 MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
     "BiasedSVD": BiasedSVDFactory(),
+    "GCR": GCRFactory(),
 }
 
 LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
@@ -480,7 +482,7 @@ def main():
     model_context = Context(
         num_users=num_users,
         num_items=num_items,
-        interactions_df=train_df,
+        interactions=train_df,
     )
 
     model = model_factory.create(

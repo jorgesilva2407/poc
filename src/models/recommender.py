@@ -18,7 +18,7 @@ class Context(NamedTuple):
 
     num_users: int
     num_items: int
-    interactions_df: DataFrame
+    interactions: DataFrame
 
 
 class Recommender(ABC, Module):
@@ -91,6 +91,15 @@ class Recommender(ABC, Module):
             torch.Tensor: Tensor of shape (n,)
                 Predicted scores for the user-item pairs.
         """
+
+    def compute_regularization_loss(self) -> Tensor:
+        """
+        Compute the regularization loss for the recommender model.
+
+        Returns:
+            torch.Tensor: Scalar tensor representing the regularization loss.
+        """
+        return torch.tensor(0.0, requires_grad=True)
 
 
 class RecommenderFactory(ABC):

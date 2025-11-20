@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 
+import torch
 import pandas as pd
 
 from src.models.recommender import Recommender, Context
@@ -9,10 +10,7 @@ from src.models.base_gcr import BaseGCR, BaseGCRFactory
 from src.models.encoders.lookup_encoder import LookupEncoder
 from src.models.logical_modules.neural_not import NeuralNOT
 from src.models.logical_modules.neural_or import NeuralOR
-from src.models.logical_modules.regularizers import (
-    make_not_hook_factory,
-    make_or_hook_factory,
-)
+from src.models.logical_modules.regularizers import not_regularizer, or_regularizer
 
 
 class GCR(BaseGCR):
@@ -57,35 +55,6 @@ class GCR(BaseGCR):
             should_permute=True,
         )
 
-        # 4. Register Regularization Hooks
-        self.register_regularizers_hooks()
-
-    def register_regularizers_hooks(self):
-        """Register gradient hooks for logical modules."""
-        # Requires self.reg_weight to be defined in this class
-
-        not_factory = make_not_hook_factory(
-            get_event_embeddings=lambda: self._cached_event_embeddings,
-            NOT=self._not,
-            sim=self.sim,
-            reg_weight=self.reg_weight,
-        )
-
-        or_factory = make_or_hook_factory(
-            get_event_embeddings=lambda: self._cached_event_embeddings,
-            TRUE=self.TRUE,
-            OR=self._or,
-            NOT=self._not,
-            sim=self.sim,
-            reg_weight=self.reg_weight,
-        )
-
-        for p in self._not.parameters():
-            p.register_hook(not_factory(p))
-
-        for p in self._or.parameters():
-            p.register_hook(or_factory(p))
-
     @property
     def hparams(self) -> dict[str, int]:
         model_hparams = {
@@ -95,6 +64,28 @@ class GCR(BaseGCR):
         super_hparams = super().hparams
         return {**super_hparams, **model_hparams}
 
+    def compute_regularization_loss(self) -> torch.Tensor:
+        """
+        Computes the regularization loss for the logical modules based on
+        the events cached during the last forward pass.
+        """
+        if self._cached_event_embeddings is None:
+            return torch.tensor(0.0)
+
+        # Use current cached events
+        X = self._cached_event_embeddings
+
+        # Compute NOT regularizer loss
+        loss_not = not_regularizer(self._not, X, sim=self.sim)
+
+        # Compute OR regularizer loss
+        loss_or = or_regularizer(self._or, self._not, self.TRUE, X, sim=self.sim)
+
+        # Clear cached events
+        self._cached_event_embeddings = None
+
+        return self.reg_weight * (loss_not + loss_or)
+
 
 class GCRFactory(BaseGCRFactory):
     """Factory for creating GCR model instances."""
@@ -103,15 +94,15 @@ class GCRFactory(BaseGCRFactory):
     def argparser(self) -> ArgumentParser:
         parser = super().argparser
         parser.add_argument(
-            "--reg_weight",
+            "--reg-weight",
             type=float,
-            default=0.01,
+            required=True,
             help="Regularization weight for logical modules.",
         )
         parser.add_argument(
-            "--user_item_embedding_dim",
+            "--user-item-embedding-dim",
             type=int,
-            default=32,
+            required=True,
             help="Dimension of user and item embeddings.",
         )
         return parser

@@ -79,13 +79,13 @@ class BaseGCR(Recommender):
         # Precompute interactions for sampling
         self.user_interactions = (
             interactions.groupby("user_id")["item_id"]
-            .agg(lambda x: np.array(x.unique(), dtype=np.int64))
+            .apply(lambda x: np.array(x.unique(), dtype=np.int64))
             .to_dict()
         )
 
         self.item_interactions = (
             interactions.groupby("item_id")["user_id"]
-            .agg(lambda x: np.array(x.unique(), dtype=np.int64))
+            .apply(lambda x: np.array(x.unique(), dtype=np.int64))
             .to_dict()
         )
 
