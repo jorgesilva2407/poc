@@ -145,7 +145,9 @@ class Trainer:
         self._load_checkpoint(self._checkpoint_path)
         print(f"Loaded best model from epoch {self._best_epoch}")
 
-        test_loss, test_metrics, test_user_metrics = self._test()
+        test_loss, test_metrics, test_user_metrics, pos_predictions, neg_predictions = (
+            self._test()
+        )
 
         self._logger.loss(self._loss.name, test_loss, 0, DatasetType.TEST)
         self._logger.metrics(test_metrics, 0, DatasetType.TEST)
@@ -156,6 +158,8 @@ class Trainer:
             test_loss,
             test_metrics,
             test_user_metrics,
+            pos_predictions,
+            neg_predictions,
         )
 
         return {
@@ -204,7 +208,7 @@ class Trainer:
         return avg_loss
 
     def _validate_epoch(self, epoch: int) -> tuple[float, dict[str, float], bool]:
-        val_loss, val_metrics, _ = self._evaluate(
+        val_loss, val_metrics, _, _, _ = self._evaluate(
             self._val_loader, description=f"Epoch {epoch} - Validation"
         )
         should_early_stop = self._should_early_stop(
@@ -213,19 +217,27 @@ class Trainer:
         )
         return val_loss, val_metrics, should_early_stop
 
-    def _test(self) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
+    def _test(
+        self,
+    ) -> tuple[
+        float, dict[str, float], dict[str, torch.Tensor], torch.Tensor, torch.Tensor
+    ]:
         return self._evaluate(self._test_loader, description="Testing")
 
     @torch.no_grad()
     def _evaluate(
         self, data_loader: DataLoader[TripletSample], description: str
-    ) -> tuple[float, dict[str, float], dict[str, torch.Tensor]]:
+    ) -> tuple[
+        float, dict[str, float], dict[str, torch.Tensor], torch.Tensor, torch.Tensor
+    ]:
         self._model.eval()
 
         total_loss = 0.0
         user_metrics: dict[str, list[torch.Tensor]] = {
             metric.name: [] for metric in self._metrics
         }
+        all_pos_predictions: list[torch.Tensor] = []
+        all_neg_predictions: list[torch.Tensor] = []
         total_samples = 0
 
         for user, pos_item, neg_items in tqdm(data_loader, desc=description):
@@ -250,6 +262,10 @@ class Trainer:
                 metric_value: torch.Tensor = metric(pos_scores, neg_scores)  # Dim (n,)
                 user_metrics[metric.name].append(metric_value)
 
+            # Collect predictions
+            all_pos_predictions.append(pos_scores.cpu())
+            all_neg_predictions.append(neg_scores.cpu())
+
             total_loss += loss_value.item() * batch_size
             total_samples += batch_size
 
@@ -260,7 +276,9 @@ class Trainer:
         avg_metrics = {
             name: values.mean().item() for name, values in user_metrics.items()
         }
-        return avg_loss, avg_metrics, user_metrics
+        pos_predictions = torch.cat(all_pos_predictions, dim=0)
+        neg_predictions = torch.cat(all_neg_predictions, dim=0)
+        return avg_loss, avg_metrics, user_metrics, pos_predictions, neg_predictions
 
     def _should_early_stop(self, current_metric: float, epoch: int) -> bool:
         if self._best_val_metric is None:

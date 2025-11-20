@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import torch
+import numpy as np
+import pandas as pd
 from google.cloud import storage
 
 from src.models.recommender import Recommender
@@ -54,6 +56,32 @@ class GoogleCloudArtifactSaver(ArtifactsSaver):
             gcloud_path = gcloud_metrics_path / f"{metric_name}.pth"
             torch.save(metric_values, local_path)
             self._send_to_bucket(local_path, gcloud_path)
+
+    def _save_predictions(
+        self, pos_predictions: torch.Tensor, neg_predictions: torch.Tensor
+    ) -> None:
+        # pos_predictions: (n,) - positive item scores
+        # neg_predictions: (n, m) - negative item scores
+        num_negatives = neg_predictions.shape[1]
+
+        # Create column names
+        pad_width = len(str(num_negatives))
+        neg_columns = [f"neg_pred_{i+1:0{pad_width}d}" for i in range(num_negatives)]
+        columns = ["pos_pred"] + neg_columns
+
+        # Convert to numpy and create DataFrame
+        pos_np = pos_predictions.cpu().numpy().reshape(-1, 1)
+        neg_np = neg_predictions.cpu().numpy()
+        data = pd.DataFrame(
+            data=np.concatenate([pos_np, neg_np], axis=1),
+            columns=columns,
+        )
+
+        # Save to CSV locally and upload to GCS
+        local_path = self.local_artifacts_path / "test_predictions.csv"
+        gcloud_path = self.gcloud_artifacts_path / "test_predictions.csv"
+        data.to_csv(local_path, index=False)
+        self._send_to_bucket(local_path, gcloud_path)
 
     def _send_to_bucket(self, local_path: Path, gcloud_path: Path) -> None:
         blob = self.bucket.blob(str(gcloud_path))

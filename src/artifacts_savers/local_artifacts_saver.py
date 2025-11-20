@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 import torch
+import numpy as np
+import pandas as pd
 
 from src.models.recommender import Recommender
 from src.artifacts_savers.artifacts_saver import ArtifactsSaver, ArtifactsSaverBuilder
@@ -42,6 +44,30 @@ class LocalArtifactsSaver(ArtifactsSaver):
         for metric_name, metric_values in user_metrics.items():
             local_path = local_metrics_path / f"{metric_name}.pth"
             torch.save(metric_values, local_path)
+
+    def _save_predictions(
+        self, pos_predictions: torch.Tensor, neg_predictions: torch.Tensor
+    ) -> None:
+        # pos_predictions: (n,) - positive item scores
+        # neg_predictions: (n, m) - negative item scores
+        num_negatives = neg_predictions.shape[1]
+
+        # Create column names
+        pad_width = len(str(num_negatives))
+        neg_columns = [f"neg_pred_{i+1:0{pad_width}d}" for i in range(num_negatives)]
+        columns = ["pos_pred"] + neg_columns
+
+        # Convert to numpy and create DataFrame
+        pos_np = pos_predictions.cpu().numpy().reshape(-1, 1)
+        neg_np = neg_predictions.cpu().numpy()
+        data = pd.DataFrame(
+            data=np.concatenate([pos_np, neg_np], axis=1),
+            columns=columns,
+        )
+
+        # Save to CSV
+        local_path = self.local_artifacts_path / "test_predictions.csv"
+        data.to_csv(local_path, index=False)
 
 
 class LocalArtifactsSaverBuilder(ArtifactsSaverBuilder):

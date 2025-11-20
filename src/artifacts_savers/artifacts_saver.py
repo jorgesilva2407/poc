@@ -22,11 +22,14 @@ class ArtifactsSaver(ABC):
         loss: float,
         metrics: dict[str, float],
         user_metrics: dict[str, Tensor],
+        pos_predictions: Tensor,
+        neg_predictions: Tensor,
     ) -> None:
         """Save model artifacts such as weights and evaluation metrics."""
         self._save_model(model)
         self._save_metrics(hparams, loss, metrics)
         self._save_user_metrics(user_metrics)
+        self._save_predictions(pos_predictions, neg_predictions)
 
     @abstractmethod
     def _save_model(self, model: Recommender) -> None:
@@ -44,6 +47,12 @@ class ArtifactsSaver(ABC):
     @abstractmethod
     def _save_user_metrics(self, user_metrics: dict[str, Tensor]) -> None:
         """Save user-specific metrics."""
+
+    @abstractmethod
+    def _save_predictions(
+        self, pos_predictions: Tensor, neg_predictions: Tensor
+    ) -> None:
+        """Save test predictions."""
 
 
 class ArtifactsSaverBuilder(ConfigurableBuilder[ArtifactsSaver], ABC):
