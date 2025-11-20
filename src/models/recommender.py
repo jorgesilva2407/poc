@@ -47,37 +47,8 @@ class Recommender(ABC, Module):
             dict[str, int | float | str]: A dictionary containing the hyperparameters.
         """
 
-    def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
-        """
-        Compute the predicted scores for given user and item IDs.
-        Automatically batches predictions if input size exceeds batch_size.
-
-        Args:
-            user_ids (torch.Tensor): Tensor of shape (n,)
-                User IDs.
-            item_ids (torch.Tensor): Tensor of shape (n,)
-                Item IDs.
-
-        Returns:
-            torch.Tensor: Tensor of shape (n,)
-                Predicted scores for the user-item pairs.
-        """
-        # If input is smaller than batch size, process normally
-        if len(user_ids) <= self.batch_size:
-            return self._forward(user_ids, item_ids)
-
-        # Otherwise, process in batches
-        predictions = []
-        for i in range(0, len(user_ids), self.batch_size):
-            batch_user_ids = user_ids[i : i + self.batch_size]
-            batch_item_ids = item_ids[i : i + self.batch_size]
-            batch_predictions = self._forward(batch_user_ids, batch_item_ids)
-            predictions.append(batch_predictions)
-
-        return torch.cat(predictions, dim=0)
-
     @abstractmethod
-    def _forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
+    def forward(self, user_ids: Tensor, item_ids: Tensor) -> Tensor:
         """
         Compute the predicted scores for given user and item IDs.
 

@@ -275,7 +275,7 @@ class BaseGCR(Recommender):
         # Compute Similarity with TRUE anchor
         return self.sim(logic_accum, self.TRUE)
 
-    def _forward(self, user_ids: torch.Tensor, item_ids: torch.Tensor) -> torch.Tensor:
+    def forward(self, user_ids: torch.Tensor, item_ids: torch.Tensor) -> torch.Tensor:
         """
         The main orchestration method.
         """
