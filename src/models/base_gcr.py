@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from src.models.recommender import Recommender, RecommenderFactory
 from src.models.logical_modules.interfaces import LogicalOR, LogicalNOT
 from src.models.encoders.interface import Encoder
+from src.models.initialization import initialize_kaiming_relu
 
 
 class BaseGCR(Recommender):
@@ -68,6 +69,7 @@ class BaseGCR(Recommender):
         # 2. Shared Event Encoder (_likes)
         # Projects (User, Item) pairs into the Event Space.
         # We calculate the input dimension from the injected encoders.
+        # Initialize MLP with Kaiming for ReLU
         input_dim = self.user_encoder.embedding_dim + self.item_encoder.embedding_dim
 
         self._likes = nn.Sequential(
@@ -75,6 +77,8 @@ class BaseGCR(Recommender):
             nn.ReLU(),
             nn.Linear(hidden_dim, event_embedding_dim),
         )
+
+        self._likes.apply(initialize_kaiming_relu)
 
         # Precompute interactions for sampling
         self.user_interactions = (

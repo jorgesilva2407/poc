@@ -3,10 +3,10 @@
 import torch
 import torch.nn as nn
 
-from src.models.logical_modules.interfaces import LogicalOR
+from src.models.logical_modules.interfaces import LogicalOR, NeuralLogicalModule
 
 
-class NeuralOR(LogicalOR):
+class NeuralOR(LogicalOR, NeuralLogicalModule):
     """Neural OR logical module."""
 
     def __init__(self, event_embedding_dim: int, hidden_dim: int):
@@ -16,6 +16,7 @@ class NeuralOR(LogicalOR):
             nn.ReLU(),
             nn.Linear(hidden_dim, event_embedding_dim),
         )
+        self._init_linear_weights()
 
     def forward(self, input1: torch.Tensor, input2: torch.Tensor) -> torch.Tensor:
         """Forward pass for the Neural OR module."""

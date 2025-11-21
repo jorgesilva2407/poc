@@ -73,7 +73,7 @@ class GCR(BaseGCR):
             return torch.tensor(0.0)
 
         # Use current cached events
-        X = self._cached_event_embeddings
+        X = self._cached_event_embeddings.detach()
 
         # Compute NOT regularizer loss
         loss_not = not_regularizer(self._not, X, sim=self.sim)

@@ -33,7 +33,14 @@ class NDCGAtK(ListwiseMetric):
             torch.Tensor: Tensor of shape (n,)
                 Computed NDCG@k metric.
         """
-        higher_counts = (neg_scores > pos_scores.unsqueeze(1)).sum(dim=1)
+        # Check for NaNs/Infs and replace with -inf
+        if torch.isnan(pos_scores).any():
+            pos_scores = torch.nan_to_num(pos_scores, nan=-float("inf"))
+        if torch.isnan(neg_scores).any():
+            neg_scores = torch.nan_to_num(neg_scores, nan=-float("inf"))
+
+        # Calculate ranks
+        higher_counts = (neg_scores >= pos_scores.unsqueeze(1)).sum(dim=1)
         ranks = higher_counts + 1  # Rank is number of higher scores + 1
         ndcgs = torch.where(
             ranks <= self.k,
