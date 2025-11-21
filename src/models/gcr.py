@@ -9,9 +9,8 @@ import pandas as pd
 from src.models.recommender import Recommender, Context
 from src.models.base_gcr import BaseGCR, BaseGCRFactory
 from src.models.encoders.lookup_encoder import LookupEncoder
-from src.models.logical_modules.neural_not import NeuralNOT
-from src.models.logical_modules.neural_or import NeuralOR
-from src.models.logical_modules.regularizers import not_regularizer, or_regularizer
+from src.models.logical_modules.neural import NeuralOR, NeuralNOT
+from src.models.logical_modules.regularizers import or_regularizer, not_regularizer
 
 
 class GCR(BaseGCR):
