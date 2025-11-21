@@ -523,7 +523,7 @@ def main():
             weight_decay=optimizer_params["weight_decay"],
         ),
         epochs=50,
-        loss=BPRLoss(),
+        loss=BPRLoss(model.inverse_temperature),
         metrics=metrics,
         early_stopping_metric=metrics[0].name,
         early_stopping_delta=0.0001,

@@ -3,6 +3,7 @@
 from argparse import ArgumentParser
 
 import torch
+import torch.nn.functional as F
 import pandas as pd
 
 from src.models.recommender import Recommender, Context
@@ -26,14 +27,15 @@ class GCR(BaseGCR):
         hidden_dim: int,
         num_neighbors: int,
         reg_weight: float,
+        dropout_rate: float,
     ):
         # 1. Create User and Item Encoders
         user_encoder = LookupEncoder(num_users, user_item_embedding_dim)
         item_encoder = LookupEncoder(num_items, user_item_embedding_dim)
 
         # 2. Create Neural Logic Components
-        or_module = NeuralOR(event_embedding_dim, hidden_dim)
-        not_module = NeuralNOT(event_embedding_dim, hidden_dim)
+        or_module = NeuralOR(event_embedding_dim, hidden_dim, dropout_rate)
+        not_module = NeuralNOT(event_embedding_dim, hidden_dim, dropout_rate)
 
         # Store regularization weight
         self.user_item_embedding_dim = user_item_embedding_dim
@@ -53,6 +55,7 @@ class GCR(BaseGCR):
             hidden_dim=hidden_dim,
             num_neighbors=num_neighbors,
             should_permute=True,
+            dropout_rate=dropout_rate,
         )
 
     @property
@@ -73,7 +76,7 @@ class GCR(BaseGCR):
             return torch.tensor(0.0)
 
         # Use current cached events
-        X = self._cached_event_embeddings.detach()
+        X = self._cached_event_embeddings
 
         # Compute NOT regularizer loss
         loss_not = not_regularizer(self._not, X, sim=self.sim)
@@ -85,6 +88,21 @@ class GCR(BaseGCR):
         self._cached_event_embeddings = None
 
         return self.reg_weight * (loss_not + loss_or)
+
+    def _init_true_anchor(self, dim: int) -> torch.Tensor:
+        """Initialize the TRUE anchor vector."""
+        raw_anchor = torch.randn(dim)
+        return F.normalize(raw_anchor, p=2, dim=0)
+
+    @property
+    def inverse_temperature(self) -> float:
+        """
+        Returns the inverse temperature parameter for the GCR model.
+
+        Returns:
+            float: The inverse temperature.
+        """
+        return 10.0
 
 
 class GCRFactory(BaseGCRFactory):
@@ -111,6 +129,7 @@ class GCRFactory(BaseGCRFactory):
         event_embedding_dim = args["event_embedding_dim"]
         hidden_dim = args["hidden_dim"]
         num_neighbors = args["num_neighbors"]
+        dropout_rate = args["dropout_rate"]
         reg_weight = args["reg_weight"]
         user_item_embedding_dim = args["user_item_embedding_dim"]
         return GCR(
@@ -122,4 +141,5 @@ class GCRFactory(BaseGCRFactory):
             hidden_dim=hidden_dim,
             num_neighbors=num_neighbors,
             reg_weight=reg_weight,
+            dropout_rate=dropout_rate,
         )

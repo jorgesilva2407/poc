@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from src.models.recommender import Recommender, RecommenderFactory
 from src.models.logical_modules.interfaces import LogicalOR, LogicalNOT
 from src.models.encoders.interface import Encoder
-from src.models.initialization import initialize_kaiming_relu
+from src.models.initialization import initialize_normal
 
 
 class BaseGCR(Recommender):
@@ -45,6 +45,7 @@ class BaseGCR(Recommender):
         hidden_dim: int,
         num_neighbors: int,
         should_permute: bool,  # Whether to permute the logical terms (works as regularizer)
+        dropout_rate: float,
     ):
         super().__init__(name, num_users, num_items)
         self.event_embedding_dim = event_embedding_dim
@@ -64,7 +65,7 @@ class BaseGCR(Recommender):
         self._cached_event_embeddings = None
 
         # 1. Shared Anchor Vector (TRUE)
-        self.register_buffer("TRUE", torch.rand(event_embedding_dim))
+        self.register_buffer("TRUE", self._init_true_anchor(event_embedding_dim))
 
         # 2. Shared Event Encoder (_likes)
         # Projects (User, Item) pairs into the Event Space.
@@ -75,10 +76,11 @@ class BaseGCR(Recommender):
         self._likes = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, event_embedding_dim),
         )
 
-        self._likes.apply(initialize_kaiming_relu)
+        self._likes.apply(initialize_normal)
 
         # Precompute interactions for sampling
         self.user_interactions = (
@@ -92,6 +94,15 @@ class BaseGCR(Recommender):
             .apply(lambda x: np.array(x.unique(), dtype=np.int64))
             .to_dict()
         )
+
+    def _encode_event(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        """Encodes (User, Item) pairs into event embeddings."""
+        raw = self._likes(input_tensor)
+        return F.normalize(raw, p=2, dim=-1)
+
+    @abstractmethod
+    def _init_true_anchor(self, dim: int) -> torch.Tensor:
+        """Initialize the TRUE anchor vector."""
 
     def sim(self, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
         """Compute similarity. Can be overridden for Fuzzy Logic if needed."""
@@ -201,7 +212,7 @@ class BaseGCR(Recommender):
             inp = torch.cat([neighbor_emb, center_expanded], dim=-1)
 
         # Pass through MLP (Event Encoder)
-        events = self._likes(inp.view(-1, inp.shape[-1]))
+        events = self._encode_event(inp.view(-1, inp.shape[-1]))
         return events.view(batch_size, self.num_neighbors, -1)
 
     def _apply_logic(
@@ -249,6 +260,9 @@ class BaseGCR(Recommender):
         logic_accum = torch.zeros_like(target_event)
         initialized_mask = torch.zeros(batch_size, device=device, dtype=torch.bool)
 
+        # List of collected intermediate vectors
+        intermediate_results = []
+
         for k in range(shuffled_terms.size(1)):
             term_k = shuffled_terms[:, k, :]  # (B, D)
             mask_k = shuffled_masks[:, k]  # (B,)
@@ -273,8 +287,19 @@ class BaseGCR(Recommender):
                 torch.where(is_update.unsqueeze(-1), or_out, logic_accum),
             )
 
+            # Cache intermediate results if needed
+            if self._cached_event_embeddings is not None:
+                intermediate_results.append(or_out[is_update])
+
             # Update initialization status
             initialized_mask = initialized_mask | mask_k
+
+        # Cache intermediate results if needed
+        if self._cached_event_embeddings is not None and intermediate_results:
+            intermediates_tensor = torch.cat(intermediate_results, dim=0)
+            self._cached_event_embeddings = torch.cat(
+                [self._cached_event_embeddings, intermediates_tensor], dim=0
+            )
 
         # Compute Similarity with TRUE anchor
         return self.sim(logic_accum, self.TRUE)
@@ -291,7 +316,7 @@ class BaseGCR(Recommender):
 
         # 2. Encode Target Event e_{u,i}
         target_input = torch.cat([u_emb, i_emb], dim=-1)
-        target_event = self._likes(target_input)
+        target_event = self._encode_event(target_input)
 
         # 3. Neighbor Sampling
         u_ids_np = user_ids.cpu().numpy()
@@ -369,5 +394,11 @@ class BaseGCRFactory(RecommenderFactory):
             type=int,
             required=True,
             help="Number of neighbors to consider for each user and for each item.",
+        )
+        parser.add_argument(
+            "--dropout-rate",
+            type=float,
+            required=True,
+            help="Dropout rate for regularization in the MLP modules.",
         )
         return parser

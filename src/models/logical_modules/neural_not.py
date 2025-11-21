@@ -9,11 +9,12 @@ from src.models.logical_modules.interfaces import LogicalNOT, NeuralLogicalModul
 class NeuralNOT(LogicalNOT, NeuralLogicalModule):
     """Neural NOT logical module."""
 
-    def __init__(self, event_embedding_dim: int, hidden_dim: int):
+    def __init__(self, event_embedding_dim: int, hidden_dim: int, dropout_rate: float):
         super(NeuralNOT, self).__init__()
         self.not_network = nn.Sequential(
             nn.Linear(event_embedding_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, event_embedding_dim),
         )
         self._init_linear_weights()

@@ -13,12 +13,15 @@ class BPRLoss(PairwiseLoss):
     Bayesian Personalized Ranking (BPR) loss for pairwise ranking.
     """
 
-    def __init__(self):
+    def __init__(self, inverse_temperature: float):
         super().__init__("BPR")
+        self.inverse_temperature = inverse_temperature
 
     def forward(
         self, pos_scores: torch.Tensor, neg_scores: torch.Tensor
     ) -> torch.Tensor:
         # pylint: disable=not-callable
-        return -torch.mean(F.logsigmoid(pos_scores - neg_scores))
+        return -torch.mean(
+            F.logsigmoid(self.inverse_temperature * (pos_scores - neg_scores))
+        )
         # pylint: enable=not-callable

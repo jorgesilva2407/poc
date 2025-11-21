@@ -72,6 +72,16 @@ class Recommender(ABC, Module):
         """
         return torch.tensor(0.0, requires_grad=True)
 
+    @property
+    def inverse_temperature(self) -> float:
+        """
+        Returns the inverse temperature parameter for the recommender model.
+
+        Returns:
+            float: The inverse temperature.
+        """
+        return 1.0
+
 
 class RecommenderFactory(ABC):
     """

@@ -24,3 +24,14 @@ def initialize_xavier_logic(m):
         nn.init.xavier_uniform_(m.weight)
         if m.bias is not None:
             nn.init.constant_(m.bias, 0)
+
+
+def initialize_normal(m):
+    """
+    Normal initialization with mean 0 and std 0.01.
+    Suitable for certain layers where small initial weights are preferred.
+    """
+    if isinstance(m, nn.Linear):
+        nn.init.normal_(m.weight, mean=0.0, std=0.01)
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)

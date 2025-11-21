@@ -9,11 +9,12 @@ from src.models.logical_modules.interfaces import LogicalOR, NeuralLogicalModule
 class NeuralOR(LogicalOR, NeuralLogicalModule):
     """Neural OR logical module."""
 
-    def __init__(self, event_embedding_dim: int, hidden_dim: int):
+    def __init__(self, event_embedding_dim: int, hidden_dim: int, dropout_rate: float):
         super(NeuralOR, self).__init__()
         self.or_network = nn.Sequential(
             nn.Linear(2 * event_embedding_dim, hidden_dim),
             nn.ReLU(),
+            nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, event_embedding_dim),
         )
         self._init_linear_weights()
