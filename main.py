@@ -19,7 +19,11 @@ from src.loggers.logger import LoggerBuilder
 from src.models.recommender import Recommender
 from src.models.biased_svd import BiasedSVDFactory
 from src.models.gcr import GCRFactory
-from src.models.fuzzy_gcr import FuzzyGCRFactory
+from src.models.fuzzy_gcr import (
+    FuzzyProductGCRFactory,
+    FuzzyGodelGCRFactory,
+    FuzzyLukasiewiczGCRFactory,
+)
 from src.models.recommender import RecommenderFactory, Context
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
 from src.artifacts_savers.artifacts_saver import ArtifactsSaverBuilder
@@ -44,7 +48,9 @@ SEED = 42
 MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
     "BiasedSVD": BiasedSVDFactory(),
     "GCR": GCRFactory(),
-    "FuzzyGCR": FuzzyGCRFactory(),
+    "FuzzyProductGCR": FuzzyProductGCRFactory(),
+    "FuzzyGodelGCR": FuzzyGodelGCRFactory(),
+    "FuzzyLukasiewiczGCR": FuzzyLukasiewiczGCRFactory(),
 }
 
 LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {

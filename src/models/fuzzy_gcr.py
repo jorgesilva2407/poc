@@ -127,13 +127,6 @@ class FuzzyGCRFactory(BaseGCRFactory):
     def argparser(self) -> ArgumentParser:
         parser = super().argparser
         parser.add_argument(
-            "--logic-system",
-            type=str,
-            default="product",
-            choices=["product", "godel", "lukasiewicz"],
-            help="Fuzzy logic system to use (product, godel, lukasiewicz).",
-        )
-        parser.add_argument(
             "--user-item-embedding-dim",
             type=int,
             required=True,
@@ -141,12 +134,11 @@ class FuzzyGCRFactory(BaseGCRFactory):
         )
         return parser
 
-    def create(self, context: Context, args: dict) -> Recommender:
+    def _create(self, logic_system: str, context: Context, args: dict) -> Recommender:
         user_item_embedding_dim = args["user_item_embedding_dim"]
         event_embedding_dim = args["event_embedding_dim"]
         hidden_dim = args["hidden_dim"]
         num_neighbors = args["num_neighbors"]
-        logic_system = args["logic_system"]
         dropout_rate = args["dropout_rate"]
         return FuzzyGCR(
             num_users=context.num_users,
@@ -159,3 +151,24 @@ class FuzzyGCRFactory(BaseGCRFactory):
             logic_system=logic_system,
             dropout_rate=dropout_rate,
         )
+
+
+class FuzzyProductGCRFactory(FuzzyGCRFactory):
+    """Factory for creating FuzzyGCR model instances with Product logic."""
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self._create("product", context, args)
+
+
+class FuzzyGodelGCRFactory(FuzzyGCRFactory):
+    """Factory for creating FuzzyGCR model instances with Godel logic."""
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self._create("godel", context, args)
+
+
+class FuzzyLukasiewiczGCRFactory(FuzzyGCRFactory):
+    """Factory for creating FuzzyGCR model instances with Lukasiewicz logic."""
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self._create("lukasiewicz", context, args)
