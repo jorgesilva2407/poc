@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 import pandas as pd
 
+from src.utils import str_to_bool
 from src.models.recommender import Recommender, Context
 from src.models.base_gcr import BaseGCR, BaseGCRFactory
 from src.models.encoders.feature_aware_encoder import FeatureAwareEncoder
@@ -176,7 +177,7 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
         )
         parser.add_argument(
             "--embed-id",
-            type=bool,
+            type=str_to_bool,
             required=True,
             help="Whether to learn embeddings for entity IDs.",
         )
