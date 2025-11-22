@@ -23,8 +23,8 @@ class FeatureAwareGCR(BaseGCR):
         num_users: int,
         num_items: int,
         interactions: pd.DataFrame,
-        user_feature_path: str,
-        item_feature_path: str,
+        user_feature_csv: str,
+        item_feature_csv: str,
         feature_metadata: dict[
             Literal["user", "item"],
             dict[str, Literal["boolean", "numerical", "categorical"]],
@@ -45,8 +45,8 @@ class FeatureAwareGCR(BaseGCR):
             num_users (int): Number of users.
             num_items (int): Number of items.
             interactions (pd.DataFrame): User-item interactions.
-            user_feature_path (str): Path to user features CSV.
-            item_feature_path (str): Path to item features CSV.
+            user_feature_csv (str): Path to user features CSV.
+            item_feature_csv (str): Path to item features CSV.
             feature_metadata (dict): Feature metadata for users and items.
             categorical_embedding_dim (int): Dimension for categorical embeddings.
             embed_id (bool): Whether to embed entity IDs.
@@ -60,7 +60,7 @@ class FeatureAwareGCR(BaseGCR):
         # 1. Create User and Item Encoders with Feature Awareness
         user_encoder = FeatureAwareEncoder(
             num_entities=num_users,
-            feature_path=user_feature_path,
+            feature_path=user_feature_csv,
             feature_metadata=feature_metadata["user"],
             categorical_embedding_dim=categorical_embedding_dim,
             embed_id=embed_id,
@@ -70,7 +70,7 @@ class FeatureAwareGCR(BaseGCR):
 
         item_encoder = FeatureAwareEncoder(
             num_entities=num_items,
-            feature_path=item_feature_path,
+            feature_path=item_feature_csv,
             feature_metadata=feature_metadata["item"],
             categorical_embedding_dim=categorical_embedding_dim,
             embed_id=embed_id,
@@ -184,30 +184,29 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
             help="Output dimension of feature-aware encoders.",
         )
         parser.add_argument(
-            "--user-feature-path",
+            "--user-feature-csv",
             type=str,
             required=True,
             help="Path to user features CSV file.",
         )
         parser.add_argument(
-            "--item-feature-path",
+            "--item-feature-csv",
             type=str,
             required=True,
             help="Path to item features CSV file.",
         )
         parser.add_argument(
-            "--feature-metadata",
+            "--feature-metadata-json",
             type=str,
             required=True,
-            help=(
-                "JSON string mapping 'user' and 'item' to their respective "
-                "feature metadata dictionaries."
-            ),
+            help="Path to JSON file containing feature metadata for users and items.",
         )
         return parser
 
     def create(self, context: Context, args: dict) -> Recommender:
-        feature_metadata = json.loads(args["feature_metadata"])
+        # Load feature metadata from JSON file
+        with open(args["feature_metadata_json"], "r", encoding="utf-8") as f:
+            feature_metadata = json.load(f)
 
         event_embedding_dim = args["event_embedding_dim"]
         hidden_dim = args["hidden_dim"]
@@ -217,15 +216,15 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
         categorical_embedding_dim = args["categorical_embedding_dim"]
         embed_id = args["embed_id"]
         encoder_output_dim = args["encoder_output_dim"]
-        user_feature_path = args["user_feature_path"]
-        item_feature_path = args["item_feature_path"]
+        user_feature_csv = args["user_feature_csv"]
+        item_feature_csv = args["item_feature_csv"]
 
         return FeatureAwareGCR(
             num_users=context.num_users,
             num_items=context.num_items,
             interactions=context.interactions,
-            user_feature_path=user_feature_path,
-            item_feature_path=item_feature_path,
+            user_feature_csv=user_feature_csv,
+            item_feature_csv=item_feature_csv,
             feature_metadata=feature_metadata,
             categorical_embedding_dim=categorical_embedding_dim,
             embed_id=embed_id,
