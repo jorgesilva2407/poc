@@ -59,6 +59,7 @@ class FeatureAwareGCR(BaseGCR):
         """
         # 1. Create User and Item Encoders with Feature Awareness
         user_encoder = FeatureAwareEncoder(
+            id_col="user_id",
             num_entities=num_users,
             feature_path=user_feature_csv,
             feature_metadata=feature_metadata["user"],
@@ -69,6 +70,7 @@ class FeatureAwareGCR(BaseGCR):
         )
 
         item_encoder = FeatureAwareEncoder(
+            id_col="item_id",
             num_entities=num_items,
             feature_path=item_feature_csv,
             feature_metadata=feature_metadata["item"],
@@ -174,7 +176,8 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
         )
         parser.add_argument(
             "--embed-id",
-            action="store_true",
+            type=bool,
+            required=True,
             help="Whether to learn embeddings for entity IDs.",
         )
         parser.add_argument(

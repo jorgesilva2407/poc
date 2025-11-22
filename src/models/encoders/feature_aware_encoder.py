@@ -1,6 +1,6 @@
 """Feature-Aware Encoder Module."""
 
-from typing import Literal
+from typing import Dict, Literal
 
 import torch
 import torch.nn as nn
@@ -17,9 +17,10 @@ class FeatureAwareEncoder(Encoder):
 
     def __init__(
         self,
+        id_col: str,
         num_entities: int,
         feature_path: str,
-        feature_metadata: dict[str, Literal["boolean", "numerical", "categorical"]],
+        feature_metadata: Dict[str, Literal["boolean", "numerical", "categorical"]],
         categorical_embedding_dim: int,
         embed_id: bool,
         output_dim: int,
@@ -30,12 +31,13 @@ class FeatureAwareEncoder(Encoder):
         with embeddings of their categorical features and raw numerical features.
 
         Args:
-            feature_path (str): Path to the CSV file containing features (e.g., users.csv).
+            num_entities (int): Total number of entities (used for ID embedding).
+            feature_path (str): Path to the CSV file containing features.
             feature_metadata (dict): Dictionary mapping column names to types.
             categorical_embedding_dim (int): Dimension size for categorical embeddings.
             embed_id (bool): Whether to learn a specific embedding for the Entity ID itself.
             output_dim (int): Projects the concatenated vector to this size.
-            dropout_rate (float): Dropout rate applied after projection (if any).
+            dropout_rate (float): Dropout rate applied after projection.
         """
         super().__init__()
 
@@ -45,14 +47,8 @@ class FeatureAwareEncoder(Encoder):
         concat_dim = 0
 
         # 1. Load Data
-        # We assume the CSV fits in memory (ML-1M is small).
+        # We assume the CSV fits in memory.
         df = pd.read_csv(feature_path)
-
-        # Identify the ID column (keys ending in '_id' based on your prep script)
-        id_col = next(col for col in feature_metadata.keys() if col.endswith("_id"))
-
-        # Ensure the dataframe is sorted by ID so array index matches Entity ID
-        # This is crucial because we will look up features by tensor index.
         df = df.sort_values(by=id_col).reset_index(drop=True)
 
         # 2. Setup ID Embedding
@@ -65,7 +61,6 @@ class FeatureAwareEncoder(Encoder):
         self.categorical_embeddings = nn.ModuleDict()
 
         # Buffers to hold static feature data on device
-        # We separate categorical indices and numerical values
         self.cat_feature_cols = []
         self.num_feature_cols = []
 
@@ -74,10 +69,14 @@ class FeatureAwareEncoder(Encoder):
             if col == id_col:
                 continue
 
+            if col not in df.columns:
+                # Warn or skip if metadata has col not in DF, but here we skip strictly
+                continue
+
             if dtype == "categorical":
                 # Create embedding layer for this feature
-                # Cardinality: max value + 1
-                cardinality = df[col].max() + 1
+                # Cardinality: max value + 1 (assuming 0-indexed encoded integers)
+                cardinality = int(df[col].max()) + 1
                 self.categorical_embeddings[col] = nn.Embedding(
                     cardinality, categorical_embedding_dim
                 )
@@ -116,25 +115,38 @@ class FeatureAwareEncoder(Encoder):
         Constructs the embedding vector for the given entity IDs.
         Order: [ID_Embed, Cat_Embed_1, Cat_Embed_2, ..., Num_Feat_1, Num_Feat_2...]
         """
+        # Store original shape to restore later (e.g., [Batch, Neighbors])
+        original_shape = ids.shape
+
+        # Flatten ids for feature lookup (requires 1D index)
+        ids_flat = ids.flatten()
+
+        # Clamp IDs to ensure they don't exceed loaded feature length
+        # (Optional safety, helps if unexpected IDs appear)
+        # ids_flat = ids_flat.clamp(0, self.data_norm_age.shape[0] - 1)
+
         embeddings = []
 
         # 1. Main Entity ID Embedding
         if self.use_id_embedding:
-            embeddings.append(self.id_embedding(ids))
+            embeddings.append(self.id_embedding(ids_flat))
 
         # 2. Categorical Features
         for col in self.cat_feature_cols:
-            # Retrieve indices from buffer: self.data_{col}[ids]
-            feature_indices = getattr(self, f"data_{col}")[ids]
+            # Retrieve indices from buffer
+            # We must use getattr because buffers are registered dynamically
+            feature_indices = getattr(self, f"data_{col}")[ids_flat]
+
             # Pass through specific embedding layer
             emb = self.categorical_embeddings[col](feature_indices)
             embeddings.append(emb)
 
         # 3. Numerical/Boolean Features
         for col in self.num_feature_cols:
-            # Retrieve values from buffer: self.data_{col}[ids]
-            values = getattr(self, f"data_{col}")[ids]
-            # Unsqueeze to make it (Batch, 1) so it can be concatenated
+            # Retrieve values from buffer
+            values = getattr(self, f"data_{col}")[ids_flat]
+
+            # Unsqueeze to make it (Batch*K, 1) so it can be concatenated with embeddings
             embeddings.append(values.unsqueeze(1))
 
         # 4. Concatenate all parts
@@ -144,4 +156,11 @@ class FeatureAwareEncoder(Encoder):
         concat_vector = torch.cat(embeddings, dim=1)
 
         # 5. Project to output dimension
-        return self.projection(concat_vector)
+        output = self.projection(concat_vector)
+
+        # 6. Restore original shape (CRITICAL FIX FOR GCR)
+        # If input was [B, K], output becomes [B, K, Output_Dim]
+        if len(original_shape) > 1:
+            output = output.view(*original_shape, -1)
+
+        return output
