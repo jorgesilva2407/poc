@@ -24,6 +24,7 @@ from src.models.fuzzy_gcr import (
     FuzzyGodelGCRFactory,
     FuzzyLukasiewiczGCRFactory,
 )
+from src.models.feature_aware_gcr import FeatureAwareGCRFactory
 from src.models.recommender import RecommenderFactory, Context
 from src.loggers.tensorboard_logger import TensorBoardLoggerBuilder
 from src.artifacts_savers.artifacts_saver import ArtifactsSaverBuilder
@@ -51,6 +52,7 @@ MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
     "FuzzyProductGCR": FuzzyProductGCRFactory(),
     "FuzzyGodelGCR": FuzzyGodelGCRFactory(),
     "FuzzyLukasiewiczGCR": FuzzyLukasiewiczGCRFactory(),
+    "FeatureAwareGCR": FeatureAwareGCRFactory(),
 }
 
 LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
