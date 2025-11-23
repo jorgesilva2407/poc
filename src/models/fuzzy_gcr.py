@@ -34,7 +34,7 @@ class FuzzyGCR(BaseGCR):
         num_neighbors: int,
         logic_system: LogicSystem,
         dropout_rate: float,
-        stiffness: float | None = None,
+        stiffness: float | None,
     ):
         # 1. Create User and Item Encoders
         user_encoder = LookupEncoder(num_users, user_item_embedding_dim)
@@ -151,6 +151,7 @@ class FuzzyGCRFactory(BaseGCRFactory):
         hidden_dim = args["hidden_dim"]
         num_neighbors = args["num_neighbors"]
         dropout_rate = args["dropout_rate"]
+        stiffness = args.get("stiffness", None)
         return FuzzyGCR(
             num_users=context.num_users,
             num_items=context.num_items,
@@ -161,6 +162,7 @@ class FuzzyGCRFactory(BaseGCRFactory):
             num_neighbors=num_neighbors,
             logic_system=logic_system,
             dropout_rate=dropout_rate,
+            stiffness=stiffness,
         )
 
 
