@@ -14,9 +14,10 @@ from src.models.logical_modules.fuzzy import (
     FuzzyProductOR,
     FuzzyGodelOR,
     FuzzyLukasiewiczOR,
+    FuzzySmoothOR,
 )
 
-LogicSystem = Literal["product", "godel", "lukasiewicz"]
+LogicSystem = Literal["product", "godel", "lukasiewicz", "smooth"]
 
 
 class FuzzyGCR(BaseGCR):
@@ -33,6 +34,7 @@ class FuzzyGCR(BaseGCR):
         num_neighbors: int,
         logic_system: LogicSystem,
         dropout_rate: float,
+        stiffness: float | None = None,
     ):
         # 1. Create User and Item Encoders
         user_encoder = LookupEncoder(num_users, user_item_embedding_dim)
@@ -47,11 +49,18 @@ class FuzzyGCR(BaseGCR):
             or_module = FuzzyGodelOR()
         elif logic_system == "lukasiewicz":
             or_module = FuzzyLukasiewiczOR()
+        elif logic_system == "smooth":
+            if stiffness is None:
+                raise ValueError(
+                    "Stiffness parameter must be provided for Smooth Fuzzy Logic."
+                )
+            or_module = FuzzySmoothOR(stiffness)
         else:
             raise ValueError(f"Unknown logic system: {logic_system}")
 
         self.user_item_embedding_dim = user_item_embedding_dim
         self.logic_system = logic_system
+        self.stiffness = stiffness
 
         # 3. Initialize Base GCR
         super().__init__(
@@ -116,6 +125,8 @@ class FuzzyGCR(BaseGCR):
         model_hparams = {
             "ui_emb_dim": self.user_item_embedding_dim,
         }
+        if self.stiffness is not None:
+            model_hparams["stiffness"] = self.stiffness
         super_hparams = super().hparams
         return {**super_hparams, **model_hparams}
 
@@ -172,3 +183,21 @@ class FuzzyLukasiewiczGCRFactory(FuzzyGCRFactory):
 
     def create(self, context: Context, args: dict) -> Recommender:
         return self._create("lukasiewicz", context, args)
+
+
+class FuzzySmoothGCRFactory(FuzzyGCRFactory):
+    """Factory for creating FuzzyGCR model instances with Smooth logic."""
+
+    @property
+    def argparser(self) -> ArgumentParser:
+        parser = super().argparser
+        parser.add_argument(
+            "--stiffness",
+            type=float,
+            required=True,
+            help="Stiffness parameter for Smooth Fuzzy Logic.",
+        )
+        return parser
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self._create("smooth", context, args)
