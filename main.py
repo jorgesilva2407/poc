@@ -23,6 +23,7 @@ from src.models.fuzzy_gcr import (
     FuzzyProductGCRFactory,
     FuzzyGodelGCRFactory,
     FuzzyLukasiewiczGCRFactory,
+    FuzzySmoothGCRFactory,
 )
 from src.models.feature_aware_gcr import FeatureAwareGCRFactory
 from src.models.recommender import RecommenderFactory, Context
@@ -53,6 +54,7 @@ MODEL_FACTORY_REGISTRY: dict[str, RecommenderFactory] = {
     "FuzzyGodelGCR": FuzzyGodelGCRFactory(),
     "FuzzyLukasiewiczGCR": FuzzyLukasiewiczGCRFactory(),
     "FeatureAwareGCR": FeatureAwareGCRFactory(),
+    "FuzzySmoothGCR": FuzzySmoothGCRFactory(),
 }
 
 LOGGER_BUILDER_REGISTRY: dict[str, LoggerBuilder] = {
