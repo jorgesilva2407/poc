@@ -89,6 +89,7 @@ class FeatureAwareGCR(BaseGCR):
         self.embed_id = embed_id
         self.encoder_output_dim = encoder_output_dim
         self.reg_weight = reg_weight
+        self.dropout_rate = dropout_rate
 
         # 3. Initialize Base GCR
         super().__init__(
