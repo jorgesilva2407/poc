@@ -8,7 +8,6 @@ import torch
 import torch.nn.functional as F
 import pandas as pd
 
-from src.utils import str_to_bool
 from src.models.recommender import Recommender, Context
 from src.models.base_gcr import BaseGCR, BaseGCRFactory
 from src.models.encoders.feature_aware_encoder import FeatureAwareEncoder
@@ -111,10 +110,11 @@ class FeatureAwareGCR(BaseGCR):
     @property
     def hparams(self) -> dict[str, int]:
         model_hparams = {
-            "cat_emb_dim": self.categorical_embedding_dim,
             "embed_id": self.embed_id,
+            "cat_emb_dim": self.categorical_embedding_dim,
             "encoder_out_dim": self.encoder_output_dim,
             "reg_weight": self.reg_weight,
+            "dropout": self.dropout_rate,
         }
         super_hparams = super().hparams
         return {**super_hparams, **model_hparams}
@@ -176,12 +176,6 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
             help="Dimension of categorical feature embeddings.",
         )
         parser.add_argument(
-            "--embed-id",
-            type=str_to_bool,
-            required=True,
-            help="Whether to learn embeddings for entity IDs.",
-        )
-        parser.add_argument(
             "--encoder-output-dim",
             type=int,
             required=True,
@@ -207,7 +201,7 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
         )
         return parser
 
-    def create(self, context: Context, args: dict) -> Recommender:
+    def _create(self, embed_id: bool, context: Context, args: dict) -> Recommender:
         # Load feature metadata from JSON file
         with open(args["feature_metadata_json"], "r", encoding="utf-8") as f:
             feature_metadata = json.load(f)
@@ -218,7 +212,6 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
         dropout_rate = args["dropout_rate"]
         reg_weight = args["reg_weight"]
         categorical_embedding_dim = args["categorical_embedding_dim"]
-        embed_id = args["embed_id"]
         encoder_output_dim = args["encoder_output_dim"]
         user_feature_csv = args["user_feature_csv"]
         item_feature_csv = args["item_feature_csv"]
@@ -239,3 +232,17 @@ class FeatureAwareGCRFactory(BaseGCRFactory):
             reg_weight=reg_weight,
             dropout_rate=dropout_rate,
         )
+
+
+class FeatureAwareWithIdEmbedGCRFactory(FeatureAwareGCRFactory):
+    """Factory for Feature-Aware GCR model with ID embedding."""
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self.create(embed_id=True, context=context, args=args)
+
+
+class FeatureAwareWithoutIdEmbedGCRFactory(FeatureAwareGCRFactory):
+    """Factory for Feature-Aware GCR model without ID embedding."""
+
+    def create(self, context: Context, args: dict) -> Recommender:
+        return self.create(embed_id=False, context=context, args=args)
