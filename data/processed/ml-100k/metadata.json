@@ -1,0 +1,32 @@
+{
+    "user": {
+        "user_id": "categorical",
+        "gender_bool": "boolean",
+        "norm_age": "numerical",
+        "occupation_idx": "categorical",
+        "zip_idx": "categorical"
+    },
+    "item": {
+        "item_id": "categorical",
+        "norm_year": "numerical",
+        "genre_unknown": "boolean",
+        "genre_Action": "boolean",
+        "genre_Adventure": "boolean",
+        "genre_Animation": "boolean",
+        "genre_Children's": "boolean",
+        "genre_Comedy": "boolean",
+        "genre_Crime": "boolean",
+        "genre_Documentary": "boolean",
+        "genre_Drama": "boolean",
+        "genre_Fantasy": "boolean",
+        "genre_Film-Noir": "boolean",
+        "genre_Horror": "boolean",
+        "genre_Musical": "boolean",
+        "genre_Mystery": "boolean",
+        "genre_Romance": "boolean",
+        "genre_Sci-Fi": "boolean",
+        "genre_Thriller": "boolean",
+        "genre_War": "boolean",
+        "genre_Western": "boolean"
+    }
+}
