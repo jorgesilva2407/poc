@@ -61,6 +61,7 @@ class FuzzyGCR(BaseGCR):
         self.user_item_embedding_dim = user_item_embedding_dim
         self.logic_system = logic_system
         self.stiffness = stiffness
+        self.dropout_rate = dropout_rate
 
         # 3. Initialize Base GCR
         super().__init__(
@@ -124,6 +125,7 @@ class FuzzyGCR(BaseGCR):
     def hparams(self):
         model_hparams = {
             "ui_emb_dim": self.user_item_embedding_dim,
+            "dropout_rate": self.dropout_rate,
         }
         if self.stiffness is not None:
             model_hparams["stiffness"] = self.stiffness
@@ -145,7 +147,7 @@ class FuzzyGCRFactory(BaseGCRFactory):
         )
         return parser
 
-    def create(self, logic_system: str, context: Context, args: dict) -> Recommender:
+    def _create(self, logic_system: str, context: Context, args: dict) -> Recommender:
         user_item_embedding_dim = args["user_item_embedding_dim"]
         event_embedding_dim = args["event_embedding_dim"]
         hidden_dim = args["hidden_dim"]
@@ -170,21 +172,21 @@ class FuzzyProductGCRFactory(FuzzyGCRFactory):
     """Factory for creating FuzzyGCR model instances with Product logic."""
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create("product", context, args)
+        return self._create("product", context, args)
 
 
 class FuzzyGodelGCRFactory(FuzzyGCRFactory):
     """Factory for creating FuzzyGCR model instances with Godel logic."""
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create("godel", context, args)
+        return self._create("godel", context, args)
 
 
 class FuzzyLukasiewiczGCRFactory(FuzzyGCRFactory):
     """Factory for creating FuzzyGCR model instances with Lukasiewicz logic."""
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create("lukasiewicz", context, args)
+        return self._create("lukasiewicz", context, args)
 
 
 class FuzzySmoothGCRFactory(FuzzyGCRFactory):
@@ -202,4 +204,4 @@ class FuzzySmoothGCRFactory(FuzzyGCRFactory):
         return parser
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create("smooth", context, args)
+        return self._create("smooth", context, args)

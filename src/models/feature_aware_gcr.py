@@ -115,7 +115,7 @@ class FeatureAwareGCR(BaseGCR):
             "cat_emb_dim": self.categorical_embedding_dim,
             "encoder_out_dim": self.encoder_output_dim,
             "reg_weight": self.reg_weight,
-            "dropout": self.dropout_rate,
+            "dropout_rate": self.dropout_rate,
         }
         super_hparams = super().hparams
         return {**super_hparams, **model_hparams}
