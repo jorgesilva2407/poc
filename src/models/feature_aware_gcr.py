@@ -238,11 +238,11 @@ class FeatureAwareWithIdEmbedGCRFactory(FeatureAwareGCRFactory):
     """Factory for Feature-Aware GCR model with ID embedding."""
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create(embed_id=True, context=context, args=args)
+        return self._create(embed_id=True, context=context, args=args)
 
 
 class FeatureAwareWithoutIdEmbedGCRFactory(FeatureAwareGCRFactory):
     """Factory for Feature-Aware GCR model without ID embedding."""
 
     def create(self, context: Context, args: dict) -> Recommender:
-        return self.create(embed_id=False, context=context, args=args)
+        return self._create(embed_id=False, context=context, args=args)
